@@ -118,33 +118,70 @@ with tab1:
         st.line_chart(tmp.set_index("date")["NVT"])
 
     # Rainbow Chart (simplified bands)
-    import altair as alt
+import altair as alt
 
-st.subheader("Bitcoin Rainbow Chart 🌈")
+st.subheader("Bitcoin Rainbow Chart 🌈 (Blockchain.com data)")
 
-hist = get_json(
-    "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart", 
-    params={"vs_currency":"usd","days":"max"}
+# 1) Harga harian dari Blockchain.com (all-time)
+mkt = get_json(
+    "https://api.blockchain.info/charts/market-price",
+    params={"timespan":"all", "format":"json"}
 )
+if mkt and "values" in mkt:
+    dfp = pd.DataFrame(mkt["values"])
+    dfp["date"] = pd.to_datetime(dfp["x"], unit="s")
+    dfp.rename(columns={"y":"price"}, inplace=True)
+    dfp = dfp[["date","price"]].sort_values("date").reset_index(drop=True)
 
-if hist and "prices" in hist:
-    df = pd.DataFrame(hist["prices"], columns=["ts","price"])
-    df["date"] = pd.to_datetime(df["ts"], unit="ms")
+    # 2) Hitung index hari i = 0..N-1 (mendekati "i" di rumus Rainbow)
+    dfp["i"] = (dfp["date"] - dfp["date"].min()).dt.days
 
-    # bikin dummy regression bands (log bands)
-    df["low"] = df["price"] * 0.2
-    df["mid"] = df["price"]
-    df["high"] = df["price"] * 5
+    # 3) Definisi band Rainbow (koefisien & offset dari JS BlockchainCenter)
+    #    sumber koef: https://www.reddit.com/r/Bitcoin/comments/p3uvze/how_is_bitcoin_rainbow_chart_calculated/
+    bands = [
+        {"name":"Basically a Fire Sale", "a":2.7880,  "offset":1200, "color":"#2c7fb8"},
+        {"name":"BUY!",                   "a":2.8010,  "offset":1225, "color":"#41b6c4"},
+        {"name":"Accumulate",            "a":2.8150,  "offset":1250, "color":"#7fcdbb"},
+        {"name":"Still cheap",           "a":2.8295,  "offset":1275, "color":"#c7e9b4"},
+        {"name":"HODL!",                 "a":2.8445,  "offset":1293, "color":"#fee391"},
+        {"name":"Is this a bubble?",     "a":2.8590,  "offset":1320, "color":"#fec44f"},
+        {"name":"FOMO intensifies",      "a":2.8720,  "offset":1350, "color":"#fe9929"},
+        {"name":"SELL! Seriously",       "a":2.8860,  "offset":1375, "color":"#ec7014"},
+        {"name":"Max Bubble",            "a":2.9000,  "offset":1400, "color":"#cc4c02"},
+    ]
 
-    base = alt.Chart(df).encode(x="date:T")
+    # 4) Bangun dataframe band dengan rumus: 10^(a * ln(i+offset) - 19.463)
+    import numpy as np
+    out = []
+    for b in bands:
+        # Hindari log(0): pakai i>=0, offset > 0 sudah aman
+        val = np.power(10.0, (b["a"] * np.log(dfp["i"] + b["offset"]) - 19.463))
+        tmp = dfp[["date"]].copy()
+        tmp["value"] = val
+        tmp["band"] = b["name"]
+        tmp["color"] = b["color"]
+        out.append(tmp)
+    dfb = pd.concat(out, ignore_index=True)
 
-    area_low = base.mark_line(color="blue").encode(y="low:Q")
-    area_mid = base.mark_line(color="green").encode(y="mid:Q")
-    area_high = base.mark_line(color="red").encode(y="high:Q")
-    price_line = base.mark_line(color="black").encode(y="price:Q")
+    # 5) Chart: price line + band lines
+    base = alt.Chart(dfp).encode(x="date:T")
+    price_line = base.mark_line().encode(y=alt.Y("price:Q", scale=alt.Scale(type="log")), color=alt.value("black"))
+    band_lines = alt.Chart(dfb).mark_line(opacity=0.85).encode(
+        x="date:T",
+        y=alt.Y("value:Q", scale=alt.Scale(type="log")),
+        color=alt.Color("band:N", scale=alt.Scale(range=list(dfb["color"].unique())))
+    )
 
-    chart = (area_low + area_mid + area_high + price_line).interactive()
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart((band_lines + price_line).interactive(), use_container_width=True)
+
+    # 6) Badge posisi saat ini (band mana harga masuk)
+    latest = dfp.iloc[-1]["price"]
+    # cari band terdekat di sekitar harga hari ini
+    today_vals = dfb[dfb["date"] == dfp.iloc[-1]["date"]].sort_values("value")
+    band_name = today_vals.iloc[(today_vals["value"] - latest).abs().argsort().iloc[0]]["band"] if len(today_vals) else "N/A"
+    st.caption(f"Latest band: **{band_name}**  |  Price: ${latest:,.0f}")
+else:
+    st.warning("Gagal load harga historis dari Blockchain.com untuk Rainbow Chart.")
 
 # --- Tab 2 ---
 with tab2:
