@@ -105,7 +105,7 @@ st.title("⚖️ BTC 'Fundamentalis' Dashboard")
 
 with st.sidebar:
     if st.sidebar.button("Refresh now"):
-    st.rerun()
+        st.rerun()
 
 col1,col2,col3,col4=st.columns(4, gap="large")
 pd.set_option("display.float_format", lambda x: f"{x:,.0f}")
