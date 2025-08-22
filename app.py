@@ -118,25 +118,33 @@ with tab1:
         st.line_chart(tmp.set_index("date")["NVT"])
 
     # Rainbow Chart (simplified bands)
-    st.subheader("Bitcoin Rainbow Chart 🌈")
-    # Hardcode regression bands for demo (log bands)
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import datetime as dt
+    import altair as alt
 
-    hist = get_json("https://api.coingecko.com/api/v3/coins/bitcoin/market_chart", 
-        params={"vs_currency":"usd","days":"max"})
-    if hist and "prices" in hist:
-        df = pd.DataFrame(hist["prices"], columns=["ts","price"])
-        df["date"] = pd.to_datetime(df["ts"], unit="ms")
-        df.set_index("date", inplace=True)
-        plt.figure(figsize=(8,4))
-        plt.plot(df.index, df["price"], label="BTC Price", color="black")
-        for mult,color in zip([0.1,1,10,100],["blue","green","orange","red"]):
-            plt.plot(df.index, mult*np.log(df.index.dayofyear+1)+1000, color=color, alpha=0.3)
-        plt.yscale("log")
-        plt.legend()
-        st.pyplot(plt)
+st.subheader("Bitcoin Rainbow Chart 🌈")
+
+hist = get_json(
+    "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart", 
+    params={"vs_currency":"usd","days":"max"}
+)
+
+if hist and "prices" in hist:
+    df = pd.DataFrame(hist["prices"], columns=["ts","price"])
+    df["date"] = pd.to_datetime(df["ts"], unit="ms")
+
+    # bikin dummy regression bands (log bands)
+    df["low"] = df["price"] * 0.2
+    df["mid"] = df["price"]
+    df["high"] = df["price"] * 5
+
+    base = alt.Chart(df).encode(x="date:T")
+
+    area_low = base.mark_line(color="blue").encode(y="low:Q")
+    area_mid = base.mark_line(color="green").encode(y="mid:Q")
+    area_high = base.mark_line(color="red").encode(y="high:Q")
+    price_line = base.mark_line(color="black").encode(y="price:Q")
+
+    chart = (area_low + area_mid + area_high + price_line).interactive()
+    st.altair_chart(chart, use_container_width=True)
 
 # --- Tab 2 ---
 with tab2:
