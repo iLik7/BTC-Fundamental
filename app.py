@@ -23,6 +23,22 @@ def get_price_from_coingecko():
         "circulating_supply": md.get("circulating_supply"),
         "last_updated": data.get("last_updated"),
     }
+    
+@st.cache_data(ttl=300)
+def get_price_history(days=30):
+    import requests, pandas as pd
+    j = requests.get(
+        "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart",
+        params={"vs_currency":"usd","days":days},
+        timeout=15
+    ).json()
+    df = pd.DataFrame(j["prices"], columns=["ts","price"])
+    df["ts"] = pd.to_datetime(df["ts"], unit="ms")
+    return df
+
+hist = get_price_history(30)
+st.subheader("BTC Price (30D)")
+st.line_chart(hist.set_index("ts")["price"])
 
 @st.cache_data(ttl=300)
 def get_estimated_tx_value_usd(days="30days"):
