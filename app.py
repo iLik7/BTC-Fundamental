@@ -28,6 +28,24 @@ def get_price_from_coingecko():
         "circulating_supply": md.get("circulating_supply"),
         "last_updated": data.get("last_updated"),
     }
+    
+@st.cache_data(ttl=15)
+def get_orderbook_coinbase(product_id="BTC-USD"):
+    url = f"https://api.exchange.coinbase.com/products/{product_id}/book"
+    data = get_json(url, params={"level":2}, headers={"User-Agent":"btc-dashboard"})
+    if not data: 
+        return None, None
+    return format_orderbook_df(data.get("bids", []), "bids"), format_orderbook_df(data.get("asks", []), "asks")
+
+@st.cache_data(ttl=15)
+def get_orderbook_kraken(pair="XBTUSD", count=50):
+    url = "https://api.kraken.com/0/public/Depth"
+    data = get_json(url, params={"pair":pair,"count":count})
+    if not data or "result" not in data:
+        return None, None
+    key = list(data["result"].keys())[0]
+    ob = data["result"][key]
+    return format_orderbook_df(ob.get("bids", []), "bids"), format_orderbook_df(ob.get("asks", []), "asks")
 
 # --- Blockchain.com stats ---
 @st.cache_data(ttl=300)
@@ -119,10 +137,9 @@ with tab1:
 
     # Rainbow Chart (simplified bands)
 import altair as alt
+st.subheader("Bitcoin Rainbow Chart 🌈 (data: Blockchain.com)")
 
-st.subheader("Bitcoin Rainbow Chart 🌈 (Blockchain.com data)")
-
-# 1) Harga harian dari Blockchain.com (all-time)
+# Harga historis dari Blockchain.com (all-time)
 mkt = get_json(
     "https://api.blockchain.info/charts/market-price",
     params={"timespan":"all", "format":"json"}
@@ -133,11 +150,10 @@ if mkt and "values" in mkt:
     dfp.rename(columns={"y":"price"}, inplace=True)
     dfp = dfp[["date","price"]].sort_values("date").reset_index(drop=True)
 
-    # 2) Hitung index hari i = 0..N-1 (mendekati "i" di rumus Rainbow)
+    # Index hari i untuk rumus log bands
     dfp["i"] = (dfp["date"] - dfp["date"].min()).dt.days
 
-    # 3) Definisi band Rainbow (koefisien & offset dari JS BlockchainCenter)
-    #    sumber koef: https://www.reddit.com/r/Bitcoin/comments/p3uvze/how_is_bitcoin_rainbow_chart_calculated/
+    # Koefisien band (versi BlockchainCenter, disederhanakan)
     bands = [
         {"name":"Basically a Fire Sale", "a":2.7880,  "offset":1200, "color":"#2c7fb8"},
         {"name":"BUY!",                   "a":2.8010,  "offset":1225, "color":"#41b6c4"},
@@ -150,11 +166,9 @@ if mkt and "values" in mkt:
         {"name":"Max Bubble",            "a":2.9000,  "offset":1400, "color":"#cc4c02"},
     ]
 
-    # 4) Bangun dataframe band dengan rumus: 10^(a * ln(i+offset) - 19.463)
     import numpy as np
     out = []
     for b in bands:
-        # Hindari log(0): pakai i>=0, offset > 0 sudah aman
         val = np.power(10.0, (b["a"] * np.log(dfp["i"] + b["offset"]) - 19.463))
         tmp = dfp[["date"]].copy()
         tmp["value"] = val
@@ -163,23 +177,26 @@ if mkt and "values" in mkt:
         out.append(tmp)
     dfb = pd.concat(out, ignore_index=True)
 
-    # 5) Chart: price line + band lines
     base = alt.Chart(dfp).encode(x="date:T")
-    price_line = base.mark_line().encode(y=alt.Y("price:Q", scale=alt.Scale(type="log")), color=alt.value("black"))
+    price_line = base.mark_line().encode(
+        y=alt.Y("price:Q", scale=alt.Scale(type="log")),
+        color=alt.value("black")
+    )
     band_lines = alt.Chart(dfb).mark_line(opacity=0.85).encode(
         x="date:T",
         y=alt.Y("value:Q", scale=alt.Scale(type="log")),
-        color=alt.Color("band:N", scale=alt.Scale(range=list(dfb["color"].unique())))
+        color=alt.Color("band:N", legend=alt.Legend(title="Bands"))
     )
 
     st.altair_chart((band_lines + price_line).interactive(), use_container_width=True)
 
-    # 6) Badge posisi saat ini (band mana harga masuk)
-    latest = dfp.iloc[-1]["price"]
-    # cari band terdekat di sekitar harga hari ini
-    today_vals = dfb[dfb["date"] == dfp.iloc[-1]["date"]].sort_values("value")
-    band_name = today_vals.iloc[(today_vals["value"] - latest).abs().argsort().iloc[0]]["band"] if len(today_vals) else "N/A"
-    st.caption(f"Latest band: **{band_name}**  |  Price: ${latest:,.0f}")
+    # Band posisi latest
+    latest_row = dfp.iloc[-1]
+    latest_date, latest_price = latest_row["date"], latest_row["price"]
+    today_vals = dfb[dfb["date"] == latest_date].sort_values("value")
+    if len(today_vals):
+        band_name = today_vals.iloc[(today_vals["value"] - latest_price).abs().argsort().iloc[0]]["band"]
+        st.caption(f"Latest band: **{band_name}**  |  Price: ${latest_price:,.0f}")
 else:
     st.warning("Gagal load harga historis dari Blockchain.com untuk Rainbow Chart.")
 
@@ -212,3 +229,33 @@ with tab3:
     blocks = get_latest_blocks()
     if blocks is not None:
         st.dataframe(blocks[["height","tx_count","size","timestamp","extras"]])
+
+st.subheader("Order Book Snapshot")
+ob_tab1, ob_tab2 = st.tabs(["Coinbase (BTC-USD)", "Kraken (XBTUSD)"])
+
+with ob_tab1:
+    bids, asks = get_orderbook_coinbase("BTC-USD")
+    if bids is not None and asks is not None:
+        c1, c2 = st.columns(2)
+        c1.write("Bids (top)")
+        c1.dataframe(bids.head(20), use_container_width=True)
+        c2.write("Asks (top)")
+        c2.dataframe(asks.head(20), use_container_width=True)
+        st.metric("Cumulative Bid Notional", f"${bids['notional'].sum():,.0f}")
+        st.metric("Cumulative Ask Notional", f"${asks['notional'].sum():,.0f}")
+    else:
+        st.info("Order book Coinbase belum tersedia (rate limit?). Coba tekan Refresh.")
+
+with ob_tab2:
+    bids, asks = get_orderbook_kraken("XBTUSD", count=50)
+    if bids is not None and asks is not None:
+        c1, c2 = st.columns(2)
+        c1.write("Bids (top)")
+        c1.dataframe(bids.head(20), use_container_width=True)
+        c2.write("Asks (top)")
+        c2.dataframe(asks.head(20), use_container_width=True)
+        st.metric("Cumulative Bid Notional", f"${bids['notional'].sum():,.0f}")
+        st.metric("Cumulative Ask Notional", f"${asks['notional'].sum():,.0f}")
+    else:
+        st.info("Order book Kraken belum tersedia (rate limit?). Coba tekan Refresh.")
+
