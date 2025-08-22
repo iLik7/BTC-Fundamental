@@ -1,6 +1,4 @@
 import requests, pandas as pd, streamlit as st, math
-from streamlit_autorefresh import st_autorefresh
-st_autorefresh(interval=60_000, key="auto")  # refresh tiap 60 detik
 
 def get_json(url, params=None, headers=None, timeout=15):
     try:
@@ -106,8 +104,8 @@ st.set_page_config(page_title="BTC Fundamental-ish Dashboard", layout="wide")
 st.title("⚖️ BTC 'Fundamentalis' Dashboard")
 
 with st.sidebar:
-    mining_cost = st.number_input("Avg Mining Cost (USD)", 10000, 500000, 95000, 1000)
-    levels = st.slider("Order book levels", 10, 500, 100, 10)
+    if st.sidebar.button("Refresh now"):
+    st.rerun()
 
 col1,col2,col3,col4=st.columns(4, gap="large")
 pd.set_option("display.float_format", lambda x: f"{x:,.0f}")
