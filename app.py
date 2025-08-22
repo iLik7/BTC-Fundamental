@@ -1,4 +1,6 @@
 import requests, pandas as pd, streamlit as st, math
+from streamlit_autorefresh import st_autorefresh
+st_autorefresh(interval=60_000, key="auto")  # refresh tiap 60 detik
 
 def get_json(url, params=None, headers=None, timeout=15):
     try:
@@ -49,6 +51,12 @@ def get_estimated_tx_value_usd(days="30days"):
     df["x"] = pd.to_datetime(df["x"], unit="s")
     df.rename(columns={"x":"date","y":"tx_value_usd"}, inplace=True)
     return df
+# NVT history (approx): pakai mcap terakhir / volume on-chain harian
+if price_data and vol_df is not None and len(vol_df):
+    tmp = vol_df.copy()
+    tmp["NVT"] = price_data["market_cap_usd"] / tmp["tx_value_usd"]
+    st.subheader("NVT (Approx) – last 30 days")
+    st.line_chart(tmp.set_index("date")["NVT"])
 
 @st.cache_data(ttl=300)
 def get_transactions_per_day(days="30days"):
@@ -71,9 +79,31 @@ def ob_binance(symbol="BTCUSDT", limit=100):
     data = get_json("https://api.binance.com/api/v3/depth", params={"symbol":symbol,"limit":limit})
     if not data: return None, None
     return fmt_ob(data.get("bids",[]),"bids"), fmt_ob(data.get("asks",[]),"asks")
+    
+@st.cache_data(ttl=15)
+def get_orderbook_coinbase(product_id="BTC-USD"):
+    url = f"https://api.exchange.coinbase.com/products/{product_id}/book"
+    data = get_json(url, params={"level":2}, headers={"User-Agent":"btc-dashboard"})
+    if not data:
+        return None, None
+    bids = format_orderbook_df(data.get("bids", []), "bids")
+    asks = format_orderbook_df(data.get("asks", []), "asks")
+    return bids, asks
+
+@st.cache_data(ttl=15)
+def get_orderbook_kraken(pair="XBTUSD", count=100):
+    url = "https://api.kraken.com/0/public/Depth"
+    data = get_json(url, params={"pair": pair, "count": count})
+    if not data or "result" not in data:
+        return None, None
+    key = list(data["result"].keys())[0]
+    ob = data["result"][key]
+    bids = format_orderbook_df(ob.get("bids", []), "bids")
+    asks = format_orderbook_df(ob.get("asks", []), "asks")
+    return bids, asks
 
 st.set_page_config(page_title="BTC Fundamental-ish Dashboard", layout="wide")
-st.title("⚖️ BTC 'Fundamental-ish' Dashboard")
+st.title("⚖️ BTC 'Fundamentalis' Dashboard")
 
 with st.sidebar:
     mining_cost = st.number_input("Avg Mining Cost (USD)", 10000, 500000, 95000, 1000)
@@ -108,11 +138,10 @@ if price and latest_vol:
 else:
     st.info("NVT belum tersedia (butuh market cap & on-chain USD).")
 
-st.subheader("Order Book Snapshot (Binance BTCUSDT)")
-bids, asks = ob_binance(limit=levels)
-c1,c2=st.columns(2)
-if bids is not None: c1.dataframe(bids.head(20), use_container_width=True)
-if asks is not None: c2.dataframe(asks.head(20), use_container_width=True)
-if bids is not None and asks is not None:
-    st.metric("Cumulative Bid Notional", f"${bids['notional'].sum():,.0f}")
-    st.metric("Cumulative Ask Notional", f"${asks['notional'].sum():,.0f}")
+st.subheader("Order Book Snapshot")
+if exchange.startswith("Binance"):
+    bids, asks = get_orderbook_binance(symbol="BTCUSDT", limit=levels)
+elif exchange.startswith("Coinbase"):
+    bids, asks = get_orderbook_coinbase(product_id="BTC-USD")
+else:
+    bids, asks = get_orderbook_kraken(pair="XBTUSD", count=levels)
