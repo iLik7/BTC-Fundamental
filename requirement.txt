@@ -1,4 +1,4 @@
 streamlit==1.36.0
 requests>=2.31.0
 pandas>=2.2.1
-streamlit-autorefresh>=0.1.1
+matplotlib>=3.7.0
