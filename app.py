@@ -1,15 +1,22 @@
-import requests
+import datetime as dt
+import numpy as np
 import pandas as pd
+import requests
 import streamlit as st
-import datetime
-import math
+import altair as alt
 
-# ---------- Helpers ----------
+# =========================
+# Helpers (HTTP & caching)
+# =========================
 def get_json(url, params=None, headers=None, timeout=15):
     try:
         r = requests.get(url, params=params, headers=headers, timeout=timeout)
         r.raise_for_status()
-        return r.json()
+        # some endpoints return plain text ints; try json then fallback
+        try:
+            return r.json()
+        except Exception:
+            return r.text
     except Exception as e:
         st.error(f"Request failed: {e}")
         return None
@@ -17,70 +24,65 @@ def get_json(url, params=None, headers=None, timeout=15):
 @st.cache_data(ttl=60)
 def get_price_from_coingecko():
     url = "https://api.coingecko.com/api/v3/coins/bitcoin"
-    params = {"localization":"false","tickers":"false","market_data":"true"}
-    data = get_json(url, params=params)
-    if not data or "market_data" not in data:
+    params = {
+        "localization":"false","tickers":"false",
+        "market_data":"true","community_data":"false",
+        "developer_data":"false","sparkline":"false"
+    }
+    j = get_json(url, params=params)
+    if not j or "market_data" not in j:
         return None
-    md = data["market_data"]
+    md = j["market_data"]
     return {
         "price_usd": md["current_price"]["usd"],
         "market_cap_usd": md["market_cap"]["usd"],
         "circulating_supply": md.get("circulating_supply"),
-        "last_updated": data.get("last_updated"),
+        "last_updated": j.get("last_updated")
     }
-    
-@st.cache_data(ttl=15)
-def get_orderbook_coinbase(product_id="BTC-USD"):
-    url = f"https://api.exchange.coinbase.com/products/{product_id}/book"
-    data = get_json(url, params={"level":2}, headers={"User-Agent":"btc-dashboard"})
-    if not data: 
-        return None, None
-    return format_orderbook_df(data.get("bids", []), "bids"), format_orderbook_df(data.get("asks", []), "asks")
 
-@st.cache_data(ttl=15)
-def get_orderbook_kraken(pair="XBTUSD", count=50):
-    url = "https://api.kraken.com/0/public/Depth"
-    data = get_json(url, params={"pair":pair,"count":count})
-    if not data or "result" not in data:
-        return None, None
-    key = list(data["result"].keys())[0]
-    ob = data["result"][key]
-    return format_orderbook_df(ob.get("bids", []), "bids"), format_orderbook_df(ob.get("asks", []), "asks")
-
-# --- Blockchain.com stats ---
 @st.cache_data(ttl=300)
 def get_estimated_tx_value_usd(days="30days"):
-    url = "https://api.blockchain.info/charts/estimated-transaction-volume-usd"
-    data = get_json(url, params={"timespan":days,"format":"json"})
-    if not data or "values" not in data: return None
-    df = pd.DataFrame(data["values"])
+    j = get_json("https://api.blockchain.info/charts/estimated-transaction-volume-usd",
+                 params={"timespan":days,"format":"json"})
+    if not j or "values" not in j: return None
+    df = pd.DataFrame(j["values"])
     df["date"] = pd.to_datetime(df["x"], unit="s")
     df.rename(columns={"y":"tx_value_usd"}, inplace=True)
-    return df[["date","tx_value_usd"]]
+    return df[["date","tx_value_usd"]].sort_values("date")
 
 @st.cache_data(ttl=300)
 def get_transactions_per_day(days="30days"):
-    url = "https://api.blockchain.info/charts/n-transactions"
-    data = get_json(url, params={"timespan":days,"format":"json"})
-    if not data or "values" not in data: return None
-    df = pd.DataFrame(data["values"])
+    j = get_json("https://api.blockchain.info/charts/n-transactions",
+                 params={"timespan":days,"format":"json"})
+    if not j or "values" not in j: return None
+    df = pd.DataFrame(j["values"])
     df["date"] = pd.to_datetime(df["x"], unit="s")
     df.rename(columns={"y":"tx_count"}, inplace=True)
-    return df[["date","tx_count"]]
+    return df[["date","tx_count"]].sort_values("date")
 
 @st.cache_data(ttl=300)
-def get_hashrate(days="30days"):
-    url = "https://api.blockchain.info/charts/hash-rate"
-    data = get_json(url, params={"timespan":days,"format":"json"})
-    if not data or "values" not in data: return None
-    df = pd.DataFrame(data["values"])
+def get_hashrate(days="90days"):
+    j = get_json("https://api.blockchain.info/charts/hash-rate",
+                 params={"timespan":days,"format":"json"})
+    if not j or "values" not in j: return None
+    df = pd.DataFrame(j["values"])
     df["date"] = pd.to_datetime(df["x"], unit="s")
     df.rename(columns={"y":"hashrate"}, inplace=True)
-    return df[["date","hashrate"]]
+    return df[["date","hashrate"]].sort_values("date")
 
 @st.cache_data(ttl=60)
 def get_blockchain_info():
+    # latest block (blockchain.info)
     return get_json("https://blockchain.info/latestblock")
+
+@st.cache_data(ttl=60)
+def get_block_height_fallback():
+    # mempool.space fallback height (returns integer text)
+    j = get_json("https://mempool.space/api/blocks/tip/height")
+    try:
+        return int(j)
+    except Exception:
+        return None
 
 @st.cache_data(ttl=60)
 def get_mempool_info():
@@ -88,72 +90,72 @@ def get_mempool_info():
 
 @st.cache_data(ttl=300)
 def get_latest_blocks(limit=10):
-    data = get_json("https://mempool.space/api/v1/blocks")
-    if not data: return None
-    df = pd.DataFrame(data)
+    j = get_json("https://mempool.space/api/v1/blocks")
+    if not isinstance(j, list): return None
+    df = pd.DataFrame(j)
     return df.head(limit)
 
-# ---------- UI ----------
-st.set_page_config(page_title="Bitcoin Command Center", layout="wide")
-st.title("₿ Bitcoin Command Center")
+# ================
+# Orderbook utils
+# ================
+def format_orderbook_df(levels, side):
+    # levels can be [["price","size","num-orders"], ...] (Coinbase)
+    # or [["price","volume","timestamp"], ...] (Kraken)
+    if not isinstance(levels, (list, tuple)) or len(levels)==0:
+        return pd.DataFrame(columns=["price","qty","notional","cum_qty","cum_notional"])
+    rows=[]
+    for row in levels:
+        try:
+            p = float(row[0]); q = float(row[1])
+            rows.append({"price":p, "qty":q, "notional":p*q})
+        except Exception:
+            continue
+    if not rows:
+        return pd.DataFrame(columns=["price","qty","notional","cum_qty","cum_notional"])
+    df = pd.DataFrame(rows)
+    df = df.sort_values("price", ascending=(side!="bids"))
+    df["cum_qty"] = df["qty"].cumsum()
+    df["cum_notional"] = df["notional"].cumsum()
+    return df
 
-# Theme toggle
-mode = st.radio("Theme mode:", ["🌞 Light", "🌙 Dark"], horizontal=True)
-if mode == "🌙 Dark":
-    st.markdown("<style>body, .stApp { background-color: #0e1117; color: #fafafa; }</style>", unsafe_allow_html=True)
+@st.cache_data(ttl=15)
+def get_orderbook_coinbase(product_id="BTC-USD"):
+    j = get_json(
+        f"https://api.exchange.coinbase.com/products/{product_id}/book",
+        params={"level":2},
+        headers={"User-Agent":"btc-dashboard","Accept":"application/json"}
+    )
+    if not isinstance(j, dict) or "bids" not in j or "asks" not in j:
+        return None, None
+    return format_orderbook_df(j["bids"], "bids"), format_orderbook_df(j["asks"], "asks")
 
-if st.button("🔄 Refresh Now"):
-    st.rerun()
+@st.cache_data(ttl=15)
+def get_orderbook_kraken(pair="XBTUSD", count=50):
+    j = get_json("https://api.kraken.com/0/public/Depth", params={"pair":pair,"count":count})
+    if not isinstance(j, dict) or "result" not in j or not j["result"]:
+        return None, None
+    key = list(j["result"].keys())[0]
+    ob = j["result"].get(key, {})
+    return format_orderbook_df(ob.get("bids", []), "bids"), format_orderbook_df(ob.get("asks", []), "asks")
 
-# --- Tabs ---
-tab1, tab2, tab3 = st.tabs(["📊 Market & Valuation", "⚡ Mining & Network", "🔎 Explorer"])
+# =================
+# Rainbow (Altair)
+# =================
+@st.cache_data(ttl=900)
+def get_market_price_all():
+    # Blockchain.com market price (USD), all-time
+    j = get_json("https://api.blockchain.info/charts/market-price",
+                 params={"timespan":"all","format":"json"})
+    if not j or "values" not in j: return None
+    df = pd.DataFrame(j["values"])
+    df["date"] = pd.to_datetime(df["x"], unit="s")
+    df.rename(columns={"y":"price"}, inplace=True)
+    df = df[["date","price"]].sort_values("date").reset_index(drop=True)
+    df["i"] = (df["date"] - df["date"].min()).dt.days
+    return df
 
-# --- Tab 1 ---
-with tab1:
-    price_data = get_price_from_coingecko()
-    if price_data:
-        col1,col2,col3 = st.columns(3)
-        col1.metric("Price (USD)", f"{price_data['price_usd']:,.0f}")
-        col2.metric("Market Cap (USD)", f"{price_data['market_cap_usd']/1e12:,.2f} T")
-        col3.metric("Circulating Supply", f"{price_data['circulating_supply']:,.0f} BTC")
-
-    vol_df = get_estimated_tx_value_usd()
-    tx_df = get_transactions_per_day()
-
-    if vol_df is not None:
-        st.subheader("On-chain Transaction Value (USD)")
-        st.line_chart(vol_df.set_index("date")["tx_value_usd"])
-
-    if tx_df is not None:
-        st.subheader("Transactions per Day")
-        st.line_chart(tx_df.set_index("date")["tx_count"])
-
-    # NVT history
-    if price_data and vol_df is not None:
-        tmp = vol_df.copy()
-        tmp["NVT"] = price_data["market_cap_usd"] / tmp["tx_value_usd"]
-        st.subheader("NVT (Approx) – last 30 days")
-        st.line_chart(tmp.set_index("date")["NVT"])
-
-    # Rainbow Chart (simplified bands)
-import altair as alt
-st.subheader("Bitcoin Rainbow Chart 🌈 (data: Blockchain.com)")
-
-# Harga historis dari Blockchain.com (all-time)
-mkt = get_json(
-    "https://api.blockchain.info/charts/market-price",
-    params={"timespan":"all", "format":"json"}
-)
-if mkt and "values" in mkt:
-    dfp = pd.DataFrame(mkt["values"])
-    dfp["date"] = pd.to_datetime(dfp["x"], unit="s")
-    dfp.rename(columns={"y":"price"}, inplace=True)
-    dfp = dfp[["date","price"]].sort_values("date").reset_index(drop=True)
-
-    # Index hari i untuk rumus log bands
-    dfp["i"] = (dfp["date"] - dfp["date"].min()).dt.days
-
-    # Koefisien band (versi BlockchainCenter, disederhanakan)
+def build_rainbow_bands(price_df):
+    # coefficients adapted to BlockchainCenter style (approx)
     bands = [
         {"name":"Basically a Fire Sale", "a":2.7880,  "offset":1200, "color":"#2c7fb8"},
         {"name":"BUY!",                   "a":2.8010,  "offset":1225, "color":"#41b6c4"},
@@ -165,97 +167,187 @@ if mkt and "values" in mkt:
         {"name":"SELL! Seriously",       "a":2.8860,  "offset":1375, "color":"#ec7014"},
         {"name":"Max Bubble",            "a":2.9000,  "offset":1400, "color":"#cc4c02"},
     ]
-
-    import numpy as np
-    out = []
+    out=[]
     for b in bands:
-        val = np.power(10.0, (b["a"] * np.log(dfp["i"] + b["offset"]) - 19.463))
-        tmp = dfp[["date"]].copy()
+        val = np.power(10.0, (b["a"] * np.log(price_df["i"] + b["offset"]) - 19.463))
+        tmp = price_df[["date"]].copy()
         tmp["value"] = val
-        tmp["band"] = b["name"]
+        tmp["band"]  = b["name"]
         tmp["color"] = b["color"]
         out.append(tmp)
-    dfb = pd.concat(out, ignore_index=True)
+    bands_df = pd.concat(out, ignore_index=True)
+    return bands_df, bands
 
-    base = alt.Chart(dfp).encode(x="date:T")
-    price_line = base.mark_line().encode(
-        y=alt.Y("price:Q", scale=alt.Scale(type="log")),
-        color=alt.value("black")
-    )
-    band_lines = alt.Chart(dfb).mark_line(opacity=0.85).encode(
-        x="date:T",
-        y=alt.Y("value:Q", scale=alt.Scale(type="log")),
-        color=alt.Color("band:N", legend=alt.Legend(title="Bands"))
-    )
+# ===============
+# UI STARTS HERE
+# ===============
+st.set_page_config(page_title="Bitcoin Command Center", layout="wide")
+st.title("₿ Bitcoin Command Center")
 
-    st.altair_chart((band_lines + price_line).interactive(), use_container_width=True)
+# Theme toggle + refresh
+mode = st.radio("Theme mode:", ["🌞 Light", "🌙 Dark"], horizontal=True)
+if mode == "🌙 Dark":
+    st.markdown("<style>body, .stApp { background-color: #0e1117; color: #fafafa; }</style>", unsafe_allow_html=True)
 
-    # Band posisi latest
-    latest_row = dfp.iloc[-1]
-    latest_date, latest_price = latest_row["date"], latest_row["price"]
-    today_vals = dfb[dfb["date"] == latest_date].sort_values("value")
-    if len(today_vals):
-        band_name = today_vals.iloc[(today_vals["value"] - latest_price).abs().argsort().iloc[0]]["band"]
-        st.caption(f"Latest band: **{band_name}**  |  Price: ${latest_price:,.0f}")
-else:
-    st.warning("Gagal load harga historis dari Blockchain.com untuk Rainbow Chart.")
+if st.button("🔄 Refresh Now"):
+    st.rerun()
 
-# --- Tab 2 ---
+# Tabs
+tab1, tab2, tab3 = st.tabs(["📊 Market & Valuation", "⚡ Mining & Network", "🔎 Explorer"])
+
+# =========================
+# Tab 1: Market & Valuation
+# =========================
+with tab1:
+    price = get_price_from_coingecko()
+    if price:
+        c1,c2,c3,c4 = st.columns(4)
+        c1.metric("Price (USD)", f"{price['price_usd']:,.0f}")
+        c2.metric("Market Cap (USD)", f"{price['market_cap_usd']/1e12:,.2f} T")
+        c3.metric("Circulating Supply", f"{price['circulating_supply']:,.0f} BTC")
+        c4.write(f"Last updated: {price['last_updated']}")
+    else:
+        st.info("Gagal load harga dari CoinGecko (rate limit?). Coba Refresh.")
+
+    vol_df = get_estimated_tx_value_usd()
+    if vol_df is not None and len(vol_df):
+        st.subheader("On-chain Transaction Value (USD)")
+        st.line_chart(vol_df.set_index("date")["tx_value_usd"])
+    else:
+        st.info("On-chain USD (Blockchain.com) tidak tersedia saat ini.")
+
+    tx_df = get_transactions_per_day()
+    if tx_df is not None and len(tx_df):
+        st.subheader("Transactions per Day")
+        st.line_chart(tx_df.set_index("date")["tx_count"])
+
+    # NVT history (approx: pakai mcap latest / volume harian)
+    if price and vol_df is not None and len(vol_df):
+        nvt_df = vol_df.copy()
+        nvt_df["NVT"] = price["market_cap_usd"] / nvt_df["tx_value_usd"]
+        st.subheader("NVT (Approx) – last 30 days")
+        st.line_chart(nvt_df.set_index("date")["NVT"])
+
+    # Rainbow Chart (Altair)
+    st.subheader("Bitcoin Rainbow Chart 🌈 (data: Blockchain.com)")
+    mp_df = get_market_price_all()
+    if mp_df is not None and len(mp_df):
+        bands_df, bands_meta = build_rainbow_bands(mp_df)
+        # build color scale from meta to keep consistent colors
+        domain = [b["name"] for b in bands_meta]
+        range_  = [b["color"] for b in bands_meta]
+
+        base = alt.Chart(mp_df).encode(x="date:T")
+        price_line = base.mark_line(color="black").encode(
+            y=alt.Y("price:Q", scale=alt.Scale(type="log"))
+        )
+        band_lines = alt.Chart(bands_df).mark_line(opacity=0.85).encode(
+            x="date:T",
+            y=alt.Y("value:Q", scale=alt.Scale(type="log")),
+            color=alt.Color("band:N", legend=alt.Legend(title="Bands"),
+                            scale=alt.Scale(domain=domain, range=range_))
+        )
+        st.altair_chart((band_lines + price_line).interactive(), use_container_width=True)
+
+        # latest band label
+        latest_date = mp_df.iloc[-1]["date"]
+        latest_price = float(mp_df.iloc[-1]["price"])
+        today_vals = bands_df[bands_df["date"]==latest_date].copy()
+        if len(today_vals):
+            idx = (today_vals["value"] - latest_price).abs().argsort().iloc[0]
+            band_name = today_vals.iloc[idx]["band"]
+            st.caption(f"Latest band: **{band_name}**  |  Price: ${latest_price:,.0f}")
+    else:
+        st.info("Rainbow data tidak tersedia saat ini.")
+
+# =========================
+# Tab 2: Mining & Network
+# =========================
 with tab2:
-    st.subheader("Bitcoin Average Mining Costs")
-    # Mock example (could replace with API if available)
-    today = datetime.date.today()
-    st.write("Latest Stats")
-    st.write("Date:", today)
-    st.metric("BTC Average Mining Cost", "$96,036", "$94,076 previous")
+    # ---- Average Mining Cost (manual/estimator) ----
+    st.subheader("Bitcoin Average Mining Costs (est.)")
+    # contoh angka statis (update manual sesuai sumbermu, mis. MacroMicro)
+    latest_date = "2025-08-20"
+    latest_cost = 96036
+    prev_cost   = 94076
+    delta = latest_cost - prev_cost
+    pct = (delta / prev_cost * 100.0) if prev_cost else 0.0
 
-    block_info = get_blockchain_info()
-    if block_info:
-        st.metric("Current Block Height", block_info.get("height"))
+    c1,c2,c3 = st.columns(3)
+    c1.write("Latest Stats")
+    c1.write(latest_date)
+    c2.metric("Avg Mining Cost (USD)", f"${latest_cost:,.0f}",
+              delta=f"{delta:+,}  ({pct:+.2f}%)")
+    c3.caption(f"${prev_cost:,.0f} previous")
 
-    hashrate_df = get_hashrate("90days")
-    if hashrate_df is not None:
+    st.markdown("---")
+
+    # ---- Network live: block height, hashrate, mempool ----
+    block = get_blockchain_info()
+    height = block["height"] if isinstance(block, dict) and "height" in block else None
+    if not height:
+        height = get_block_height_fallback()
+    if height:
+        st.metric("Current Block Height", f"{height:,}")
+    else:
+        st.info("Tidak dapat memuat block height saat ini.")
+
+    hdf = get_hashrate("90days")
+    if hdf is not None and len(hdf):
         st.subheader("Hashrate (90 days)")
-        st.line_chart(hashrate_df.set_index("date")["hashrate"])
+        st.line_chart(hdf.set_index("date")["hashrate"])
+    else:
+        st.info("Hashrate tidak tersedia saat ini.")
 
     mempool = get_mempool_info()
-    if mempool:
-        st.metric("Mempool TX Count", f"{mempool.get('count',0):,}")
-        st.metric("Mempool vSize (MB)", f"{mempool.get('vsize',0)/1e6:,.2f} MB")
+    if isinstance(mempool, dict):
+        count = mempool.get("count", 0)
+        vsize = mempool.get("vsize", 0) / 1e6
+        st.metric("Mempool TX Count", f"{count:,}")
+        st.metric("Mempool vSize (MB)", f"{vsize:,.2f} MB")
+    else:
+        st.info("Mempool info tidak tersedia saat ini.")
 
-# --- Tab 3 ---
+    st.markdown("---")
+    # ---- Order book snapshots (Coinbase & Kraken) ----
+    st.subheader("Order Book Snapshot")
+    ob1, ob2 = st.tabs(["Coinbase (BTC-USD)", "Kraken (XBTUSD)"])
+
+    with ob1:
+        bids, asks = get_orderbook_coinbase("BTC-USD")
+        if bids is None or asks is None or bids.empty or asks.empty:
+            st.info("Order book Coinbase belum tersedia (rate limit / blocked). Coba tekan Refresh.")
+        else:
+            c1, c2 = st.columns(2)
+            c1.write("Bids (top)")
+            c1.dataframe(bids.head(20), use_container_width=True)
+            c2.write("Asks (top)")
+            c2.dataframe(asks.head(20), use_container_width=True)
+            st.metric("Cumulative Bid Notional", f"${bids['notional'].sum():,.0f}")
+            st.metric("Cumulative Ask Notional", f"${asks['notional'].sum():,.0f}")
+
+    with ob2:
+        bids, asks = get_orderbook_kraken("XBTUSD", count=50)
+        if bids is None or asks is None or bids.empty or asks.empty:
+            st.info("Order book Kraken belum tersedia (rate limit / blocked). Coba tekan Refresh.")
+        else:
+            c1, c2 = st.columns(2)
+            c1.write("Bids (top)")
+            c1.dataframe(bids.head(20), use_container_width=True)
+            c2.write("Asks (top)")
+            c2.dataframe(asks.head(20), use_container_width=True)
+            st.metric("Cumulative Bid Notional", f"${bids['notional'].sum():,.0f}")
+            st.metric("Cumulative Ask Notional", f"${asks['notional'].sum():,.0f}")
+
+# =================
+# Tab 3: Explorer
+# =================
 with tab3:
     st.subheader("Latest Blocks")
-    blocks = get_latest_blocks()
-    if blocks is not None:
-        st.dataframe(blocks[["height","tx_count","size","timestamp","extras"]])
-
-st.subheader("Order Book Snapshot")
-ob_tab1, ob_tab2 = st.tabs(["Coinbase (BTC-USD)", "Kraken (XBTUSD)"])
-
-with ob_tab1:
-    bids, asks = get_orderbook_coinbase("BTC-USD")
-    if bids is not None and asks is not None:
-        c1, c2 = st.columns(2)
-        c1.write("Bids (top)")
-        c1.dataframe(bids.head(20), use_container_width=True)
-        c2.write("Asks (top)")
-        c2.dataframe(asks.head(20), use_container_width=True)
-        st.metric("Cumulative Bid Notional", f"${bids['notional'].sum():,.0f}")
-        st.metric("Cumulative Ask Notional", f"${asks['notional'].sum():,.0f}")
+    blocks = get_latest_blocks(limit=10)
+    if blocks is not None and len(blocks):
+        cols = [c for c in ["height","tx_count","size","timestamp"] if c in blocks.columns]
+        st.dataframe(blocks[cols], use_container_width=True)
+        st.caption("Sumber: mempool.space")
     else:
-        st.info("Order book Coinbase belum tersedia (rate limit?). Coba tekan Refresh.")
-
-with ob_tab2:
-    bids, asks = get_orderbook_kraken("XBTUSD", count=50)
-    if bids is not None and asks is not None:
-        c1, c2 = st.columns(2)
-        c1.write("Bids (top)")
-        c1.dataframe(bids.head(20), use_container_width=True)
-        c2.write("Asks (top)")
-        c2.dataframe(asks.head(20), use_container_width=True)
-        st.metric("Cumulative Bid Notional", f"${bids['notional'].sum():,.0f}")
-        st.metric("Cumulative Ask Notional", f"${asks['notional'].sum():,.0f}")
-    else:
-        st.info("Order book Kraken belum tersedia (rate limit?). Coba tekan Refresh.")
-
+        st.info("Blocks belum bisa dimuat (rate limit?). Tekan Refresh sebentar lagi.")
