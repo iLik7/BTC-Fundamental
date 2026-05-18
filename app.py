@@ -75,7 +75,8 @@ def get_price_from_coingecko():
 def get_estimated_tx_value_usd(days="30days"):
     j = get_json("https://api.blockchain.info/charts/estimated-transaction-volume-usd",
                  params={"timespan":days,"format":"json"})
-    if not j or "values" not in j: return None
+    if not j or "values" not in j:
+        return None
     df = pd.DataFrame(j["values"])
     df["date"] = pd.to_datetime(df["x"], unit="s")
     df.rename(columns={"y":"tx_value_usd"}, inplace=True)
@@ -98,7 +99,8 @@ def get_transactions_per_day(days="30days"):
 def get_hashrate(days="90days"):
     j = get_json("https://api.blockchain.info/charts/hash-rate",
                  params={"timespan":days,"format":"json"})
-    if not j or "values" not in j: return None
+    if not j or "values" not in j:
+        return None
     df = pd.DataFrame(j["values"])
     df["date"] = pd.to_datetime(df["x"], unit="s")
     df.rename(columns={"y":"hashrate"}, inplace=True)
@@ -125,7 +127,8 @@ def get_mempool_info():
 @st.cache_data(ttl=300)
 def get_latest_blocks(limit=10):
     j = get_json("https://mempool.space/api/v1/blocks")
-    if not isinstance(j, list): return None
+    if not isinstance(j, list):
+        return None
     df = pd.DataFrame(j)
     return df.head(limit)
 
@@ -180,7 +183,8 @@ def get_market_price_all():
     # Blockchain.com market price (USD), all-time
     j = get_json("https://api.blockchain.info/charts/market-price",
                  params={"timespan":"all","format":"json"})
-    if not j or "values" not in j: return None
+    if not j or "values" not in j:
+        return None
     df = pd.DataFrame(j["values"])
     df["date"] = pd.to_datetime(df["x"], unit="s")
     df.rename(columns={"y":"price"}, inplace=True)
