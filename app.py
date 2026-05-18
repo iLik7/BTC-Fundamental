@@ -157,16 +157,13 @@ def format_orderbook_df(levels, side):
 
 @st.cache_data(ttl=15)
 def get_orderbook_coinbase(product_id="BTC-USD"):
+    url = f"https://api.exchange.coinbase.com/products/{product_id}/book"
     params = {"level": 2}
     req_headers = {
         "User-Agent": "btc-dashboard",
         "Accept": "application/json",
     }
-    j = get_json(
-        f"https://api.exchange.coinbase.com/products/{product_id}/book",
-        params=params,
-        headers=req_headers,
-    )
+    j = get_json(url, params=params, headers=req_headers)
     if not isinstance(j, dict) or "bids" not in j or "asks" not in j:
         return None, None
     bids = format_orderbook_df(j["bids"], "bids")
