@@ -159,21 +159,28 @@ def format_orderbook_df(levels, side):
 def get_orderbook_coinbase(product_id="BTC-USD"):
     j = get_json(
         f"https://api.exchange.coinbase.com/products/{product_id}/book",
-        params={"level":2},
-        headers={"User-Agent":"btc-dashboard","Accept":"application/json"}
+        params={"level": 2},
+        headers={"User-Agent": "btc-dashboard", "Accept": "application/json"},
     )
     if not isinstance(j, dict) or "bids" not in j or "asks" not in j:
         return None, None
-    return format_orderbook_df(j["bids"], "bids"), format_orderbook_df(j["asks"], "asks")
+    bids = format_orderbook_df(j["bids"], "bids")
+    asks = format_orderbook_df(j["asks"], "asks")
+    return bids, asks
 
 @st.cache_data(ttl=15)
 def get_orderbook_kraken(pair="XBTUSD", count=50):
-    j = get_json("https://api.kraken.com/0/public/Depth", params={"pair":pair,"count":count})
+    j = get_json(
+        "https://api.kraken.com/0/public/Depth",
+        params={"pair": pair, "count": count},
+    )
     if not isinstance(j, dict) or "result" not in j or not j["result"]:
         return None, None
     key = list(j["result"].keys())[0]
     ob = j["result"].get(key, {})
-    return format_orderbook_df(ob.get("bids", []), "bids"), format_orderbook_df(ob.get("asks", []), "asks")
+    bids = format_orderbook_df(ob.get("bids", []), "bids")
+    asks = format_orderbook_df(ob.get("asks", []), "asks")
+    return bids, asks
 
 # =================
 # Rainbow (Altair)
