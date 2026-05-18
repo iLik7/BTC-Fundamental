@@ -83,9 +83,12 @@ def get_estimated_tx_value_usd(days="30days"):
 
 @st.cache_data(ttl=300)
 def get_transactions_per_day(days="30days"):
-    j = get_json("https://api.blockchain.info/charts/n-transactions",
-                 params={"timespan":days,"format":"json"})
-    if not j or "values" not in j: return None
+    j = get_json(
+        "https://api.blockchain.info/charts/n-transactions",
+        params={"timespan": days, "format": "json"},
+    )
+    if not j or "values" not in j:
+        return None
     df = pd.DataFrame(j["values"])
     df["date"] = pd.to_datetime(df["x"], unit="s")
     df.rename(columns={"y":"tx_count"}, inplace=True)
