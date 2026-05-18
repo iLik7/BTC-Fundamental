@@ -21,6 +21,37 @@ def get_json(url, params=None, headers=None, timeout=15):
         st.error(f"Request failed: {e}")
         return None
 
+@st.cache_data(ttl=30)
+def get_yahoo_chart(symbol, interval="5m", range_="1d"):
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+    j = get_json(url, params={"interval": interval, "range": range_})
+    if not isinstance(j, dict):
+        return None
+    result = j.get("chart", {}).get("result", [])
+    if not result:
+        return None
+    info = result[0]
+    ts = info.get("timestamp", [])
+    quote = info.get("indicators", {}).get("quote", [{}])[0]
+    closes = quote.get("close", [])
+    if not ts or not closes:
+        return None
+    df = pd.DataFrame({"timestamp": ts, "close": closes}).dropna()
+    if df.empty:
+        return None
+    df["date"] = pd.to_datetime(df["timestamp"], unit="s", utc=True).dt.tz_convert("UTC")
+    return df[["date", "close"]]
+
+def summarize_asset(symbol, label, interval="5m", range_="1d"):
+    df = get_yahoo_chart(symbol, interval=interval, range_=range_)
+    if df is None or len(df) < 2:
+        return None
+    first = float(df["close"].iloc[0])
+    last = float(df["close"].iloc[-1])
+    change = last - first
+    pct = (change / first) * 100 if first else 0
+    return {"label": label, "symbol": symbol, "price": last, "change": change, "pct": pct, "series": df}
+
 @st.cache_data(ttl=60)
 def get_price_from_coingecko():
     url = "https://api.coingecko.com/api/v3/coins/bitcoin"
@@ -44,7 +75,8 @@ def get_price_from_coingecko():
 def get_estimated_tx_value_usd(days="30days"):
     j = get_json("https://api.blockchain.info/charts/estimated-transaction-volume-usd",
                  params={"timespan":days,"format":"json"})
-    if not j or "values" not in j: return None
+    if not j or "values" not in j:
+        return None
     df = pd.DataFrame(j["values"])
     df["date"] = pd.to_datetime(df["x"], unit="s")
     df.rename(columns={"y":"tx_value_usd"}, inplace=True)
@@ -52,9 +84,12 @@ def get_estimated_tx_value_usd(days="30days"):
 
 @st.cache_data(ttl=300)
 def get_transactions_per_day(days="30days"):
-    j = get_json("https://api.blockchain.info/charts/n-transactions",
-                 params={"timespan":days,"format":"json"})
-    if not j or "values" not in j: return None
+    j = get_json(
+        "https://api.blockchain.info/charts/n-transactions",
+        params={"timespan": days, "format": "json"},
+    )
+    if not j or "values" not in j:
+        return None
     df = pd.DataFrame(j["values"])
     df["date"] = pd.to_datetime(df["x"], unit="s")
     df.rename(columns={"y":"tx_count"}, inplace=True)
@@ -64,7 +99,8 @@ def get_transactions_per_day(days="30days"):
 def get_hashrate(days="90days"):
     j = get_json("https://api.blockchain.info/charts/hash-rate",
                  params={"timespan":days,"format":"json"})
-    if not j or "values" not in j: return None
+    if not j or "values" not in j:
+        return None
     df = pd.DataFrame(j["values"])
     df["date"] = pd.to_datetime(df["x"], unit="s")
     df.rename(columns={"y":"hashrate"}, inplace=True)
@@ -91,7 +127,8 @@ def get_mempool_info():
 @st.cache_data(ttl=300)
 def get_latest_blocks(limit=10):
     j = get_json("https://mempool.space/api/v1/blocks")
-    if not isinstance(j, list): return None
+    if not isinstance(j, list):
+        return None
     df = pd.DataFrame(j)
     return df.head(limit)
 
@@ -120,23 +157,32 @@ def format_orderbook_df(levels, side):
 
 @st.cache_data(ttl=15)
 def get_orderbook_coinbase(product_id="BTC-USD"):
-    j = get_json(
-        f"https://api.exchange.coinbase.com/products/{product_id}/book",
-        params={"level":2},
-        headers={"User-Agent":"btc-dashboard","Accept":"application/json"}
-    )
+    url = f"https://api.exchange.coinbase.com/products/{product_id}/book"
+    params = {"level": 2}
+    req_headers = {
+        "User-Agent": "btc-dashboard",
+        "Accept": "application/json",
+    }
+    j = get_json(url, params=params, headers=req_headers)
     if not isinstance(j, dict) or "bids" not in j or "asks" not in j:
         return None, None
-    return format_orderbook_df(j["bids"], "bids"), format_orderbook_df(j["asks"], "asks")
+    bids = format_orderbook_df(j["bids"], "bids")
+    asks = format_orderbook_df(j["asks"], "asks")
+    return bids, asks
 
 @st.cache_data(ttl=15)
 def get_orderbook_kraken(pair="XBTUSD", count=50):
-    j = get_json("https://api.kraken.com/0/public/Depth", params={"pair":pair,"count":count})
+    j = get_json(
+        "https://api.kraken.com/0/public/Depth",
+        params={"pair": pair, "count": count},
+    )
     if not isinstance(j, dict) or "result" not in j or not j["result"]:
         return None, None
     key = list(j["result"].keys())[0]
     ob = j["result"].get(key, {})
-    return format_orderbook_df(ob.get("bids", []), "bids"), format_orderbook_df(ob.get("asks", []), "asks")
+    bids = format_orderbook_df(ob.get("bids", []), "bids")
+    asks = format_orderbook_df(ob.get("asks", []), "asks")
+    return bids, asks
 
 # =================
 # Rainbow (Altair)
@@ -146,7 +192,8 @@ def get_market_price_all():
     # Blockchain.com market price (USD), all-time
     j = get_json("https://api.blockchain.info/charts/market-price",
                  params={"timespan":"all","format":"json"})
-    if not j or "values" not in j: return None
+    if not j or "values" not in j:
+        return None
     df = pd.DataFrame(j["values"])
     df["date"] = pd.to_datetime(df["x"], unit="s")
     df.rename(columns={"y":"price"}, inplace=True)
@@ -190,10 +237,73 @@ if mode == "🌙 Dark":
     st.markdown("<style>body, .stApp { background-color: #0e1117; color: #fafafa; }</style>", unsafe_allow_html=True)
 
 if st.button("🔄 Refresh Now"):
+    st.cache_data.clear()
     st.rerun()
 
 # Tabs
-tab1, tab2, tab3 = st.tabs(["📊 Market & Valuation", "⚡ Mining & Network", "🔎 Explorer"])
+tab0, tab1, tab2, tab3 = st.tabs(["🌍 World Money Tracker", "📊 Market & Valuation", "⚡ Mining & Network", "🔎 Explorer"])
+
+with tab0:
+    st.subheader("Realtime Money Flow Tracker (Free Data Sources)")
+    st.caption("Sumber data realtime gratis: Yahoo Finance public endpoints. Klik tombol refresh untuk update cepat.")
+
+    assets = [
+        ("^TNX", "US 10Y Yield"),
+        ("^TYX", "US 30Y Yield"),
+        ("DX-Y.NYB", "US Dollar Index (DXY)"),
+        ("^GSPC", "S&P 500"),
+        ("GC=F", "Gold Futures"),
+        ("BTC-USD", "Bitcoin"),
+    ]
+    summaries = []
+    for symbol, label in assets:
+        sm = summarize_asset(symbol, label, interval="5m", range_="1d")
+        if sm:
+            summaries.append(sm)
+
+    if not summaries:
+        st.warning("Belum ada data yang bisa dimuat sekarang. Coba refresh beberapa detik lagi.")
+    else:
+        # Impact heuristic:
+        # risk-off signal if yields & dxy up while risk assets down
+        by_symbol = {s["symbol"]: s for s in summaries}
+        tnx = by_symbol.get("^TNX", {}).get("pct", 0.0)
+        tyx = by_symbol.get("^TYX", {}).get("pct", 0.0)
+        dxy = by_symbol.get("DX-Y.NYB", {}).get("pct", 0.0)
+        spx = by_symbol.get("^GSPC", {}).get("pct", 0.0)
+        gold = by_symbol.get("GC=F", {}).get("pct", 0.0)
+        btc = by_symbol.get("BTC-USD", {}).get("pct", 0.0)
+        risk_off_score = (tnx + tyx + dxy) - (spx + gold + btc)
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Risk-Off Score", f"{risk_off_score:+.2f}")
+        c2.metric("Yield Pressure (10Y+30Y)", f"{tnx+tyx:+.2f}%")
+        c3.metric("Risk Assets (SPX+Gold+BTC)", f"{spx+gold+btc:+.2f}%")
+
+        if risk_off_score > 1.5:
+            st.error("Money outflow ke USD/yield kemungkinan dominan (risk-off).")
+        elif risk_off_score < -1.5:
+            st.success("Money inflow ke risk assets kemungkinan dominan (risk-on).")
+        else:
+            st.info("Aliran dana campuran / netral untuk sesi ini.")
+
+        metric_cols = st.columns(len(summaries))
+        for idx, sm in enumerate(summaries):
+            metric_cols[idx].metric(sm["label"], f"{sm['price']:,.2f}", f"{sm['pct']:+.2f}%")
+
+        hist = pd.concat(
+            [s["series"].assign(asset=s["label"]).rename(columns={"close": "price"}) for s in summaries],
+            ignore_index=True
+        )
+        chart = alt.Chart(hist).mark_line().encode(
+            x="date:T",
+            y=alt.Y("price:Q", title="Price"),
+            color="asset:N",
+            tooltip=["asset:N", "date:T", "price:Q"]
+        ).properties(height=360)
+        st.altair_chart(chart.interactive(), use_container_width=True)
+
+        st.caption(f"Last refresh (UTC): {dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
 
 # =========================
 # Tab 1: Market & Valuation
