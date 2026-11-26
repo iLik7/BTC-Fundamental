@@ -1,6 +1,6 @@
 # BTC-Fundamental
 
-Hub dashboard BTC (satu halaman, 4 tab): **Fuel Gauge**, **Time Matrix Okt–Des**, **500-Day Simulator**, **SPX Tracker**.
+Hub dashboard BTC (satu halaman, 4 tab): **Fuel Gauge**, **Time Matrix 2027**, **500-Day Simulator**, **SPX Tracker**.
 
 - `index.html` — hasil build, ini yang di-hosting (statis, tanpa server).
 - `src/` — file sumber tiap tool. Edit di sini, lalu `python3 build.py` untuk membangun ulang `index.html`.
