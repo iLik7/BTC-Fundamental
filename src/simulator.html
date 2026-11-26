@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BTC 500-Day Rule Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#fafaf8;--bg2:#f5f4f0;--b:#e0ddd8;--b2:#d0ccc5;--t:#1a1714;--t2:#6b6560;--t3:#a8a29c;--gold:#b8860b;--gd:rgba(184,134,11,.08);--gb:rgba(184,134,11,.25);--red:#8b2020;--rd:rgba(139,32,32,.08);--gr:#1a6b47;--grd:rgba(26,107,71,.08);--am:#7a5000;--bl:#1a3a6b;--sh:0 1px 4px rgba(0,0,0,.06),0 4px 20px rgba(0,0,0,.04)}
+body{background:var(--bg);color:var(--t);font-family:'DM Mono',monospace;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 10% 0%,rgba(184,134,11,.04),transparent 50%),radial-gradient(ellipse at 90% 100%,rgba(184,134,11,.03),transparent 50%);pointer-events:none}
+.w{max-width:1000px;margin:0 auto;padding:2.3rem 1.5rem 4rem;position:relative}
+.eb{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
+h1{font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:300;line-height:1.12}
+h1 em{font-style:italic;color:var(--gold)}
+.sub{font-size:10px;color:var(--t3);margin:8px 0 1.5rem;line-height:1.8}
+.sec{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin:1.8rem 0 10px;display:flex;align-items:center;gap:10px}
+.sec::after{content:'';flex:1;height:1px;background:var(--b)}
+.panel{background:var(--bg);border:1px solid var(--b);border-radius:4px;padding:1.2rem 1.4rem;box-shadow:var(--sh)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px 22px}
+.f label{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.06em;color:var(--t2);margin-bottom:6px}
+.f label b{color:var(--t);font-weight:500}
+input[type=range]{width:100%;accent-color:var(--gold)}
+input[type=number],input[type=date]{width:100%;font-family:inherit;font-size:12px;padding:7px 9px;border:1px solid var(--b2);background:var(--bg);color:var(--t);border-radius:2px}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.btn{font-family:inherit;font-size:11px;padding:6px 12px;border:1px solid var(--b2);background:transparent;color:var(--t2);border-radius:2px;cursor:pointer}
+.btn:hover{border-color:var(--gold);color:var(--gold)}.btn.on{background:var(--t);color:var(--bg);border-color:var(--t)}
+#msg{font-size:10px;color:var(--t3);margin-top:8px;min-height:14px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--b);border:1px solid var(--b);border-radius:4px;overflow:hidden;box-shadow:var(--sh)}
+.c{background:var(--bg);padding:15px 16px;position:relative}
+.c .l{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:8px}
+.c .v{font-family:'Cormorant Garamond',serif;font-size:26px;line-height:1}
+.c .s{font-size:10px;color:var(--t3);margin-top:6px}
+.c::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--bar,var(--b))}
+.pos{color:var(--gr)}.neg{color:var(--red)}.gd{color:var(--gold)}
+.two{display:grid;grid-template-columns:1.6fr 1fr;gap:16px}
+@media(max-width:760px){.two{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th,td{padding:8px 8px;border-bottom:1px solid var(--b);text-align:left}
+th{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);font-weight:400}
+td.m{text-align:center}
+.tl{display:flex;flex-direction:column;gap:0}
+.tr{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--b);font-size:11px}
+.tr:last-child{border-bottom:none}
+.tr b{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:500;min-width:105px}
+.tr span{color:var(--t2);line-height:1.6}
+.note{font-size:11px;color:var(--t2);line-height:1.9;background:var(--bg2);border-left:2px solid var(--gb);padding:12px 16px;margin-top:1.4rem}
+.note b{color:var(--t)}
+.ft{margin-top:1.4rem;font-size:10px;color:var(--t3);font-style:italic;line-height:1.8}
+canvas{max-width:100%}
+.leg{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--t2);margin-top:8px}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+</style></head><body><div class="w">
+<div class="eb">BTC · Halving 500-Day Rule</div>
+<h1>Simulator <em>expected gain</em></h1>
+<div class="sub">Beli T-500 · jual T+500 · jendela ±1000 hari · Monte Carlo 20.000 skenario berbasis peluruhan rasio exit ÷ ATH siklus lalu · jalan offline, tanpa API</div>
+
+<div class="sec">Asumsi (geser, hasil update langsung)</div>
+<div class="panel">
+ <div class="grid">
+  <div class="f"><label>Harga entry di T-500 <b id="entryv"></b></label><input type="range" id="entry" min="35000" max="100000" step="500" value="76000"></div>
+  <div class="f"><label>ATH acuan <b id="athv"></b></label><input type="number" id="ath" value="126000" step="1000"></div>
+  <div class="f"><label>Rasio exit ÷ ATH (median) <b id="ratiov"></b></label><input type="range" id="ratio" min="0.6" max="2.5" step="0.05" value="1.3"></div>
+  <div class="f"><label>Ketidakpastian (σ log) <b id="sdv"></b></label><input type="range" id="sd" min="0.15" max="0.8" step="0.05" value="0.45"></div>
+  <div class="f"><label>Estimasi halving 2028</label><input type="date" id="est" value="2028-04-11"></div>
+  <div class="f"><label>Mcap emas (T$, kasar)</label><input type="number" id="gold" value="29" step="1"></div>
+ </div>
+ <div class="row">
+  <button class="btn" data-r="1.0">Pesimis ×1,0</button><button class="btn on" data-r="1.3">Base ×1,3</button><button class="btn" data-r="1.7">Optimis ×1,7</button>
+  <span style="width:10px"></span>
+  <button class="btn" data-e="45000">Entry $45k</button><button class="btn" data-e="58000">$58k</button><button class="btn" data-e="65000">$65k</button><button class="btn" data-e="76000">$76k</button>
+  <button class="btn" id="live">Pakai harga live</button>
+ </div>
+ <div id="msg"></div>
+</div>
+
+<div class="sec">Hasil simulasi</div>
+<div class="cards">
+ <div class="c" style="--bar:var(--gold)"><div class="l">Exit median</div><div class="v gd" id="r-exit">—</div><div class="s" id="r-exit-s"></div></div>
+ <div class="c" style="--bar:var(--gr)"><div class="l">Gain median</div><div class="v" id="r-gain">—</div><div class="s" id="r-mult"></div></div>
+ <div class="c" style="--bar:var(--bl)"><div class="l">Per tahun (median)</div><div class="v" id="r-cagr">—</div><div class="s">1000 hari = 2,74 tahun</div></div>
+ <div class="c" style="--bar:var(--red)"><div class="l">Peluang rugi</div><div class="v" id="r-loss">—</div><div class="s">exit &lt; entry (model)</div></div>
+ <div class="c" style="--bar:var(--gr)"><div class="l">Peluang ≥ 2×</div><div class="v" id="r-2x">—</div><div class="s" id="r-p">—</div></div>
+ <div class="c" style="--bar:var(--am)"><div class="l">Mcap saat exit</div><div class="v" id="r-mc">—</div><div class="s" id="r-gold">—</div></div>
+</div>
+
+<div class="sec">Sebaran harga exit di T+500</div>
+<div class="two">
+ <div class="panel"><canvas id="hist" height="230"></canvas>
+  <div class="leg"><span><i style="background:rgba(139,32,32,.6)"></i>rugi (&lt; entry)</span><span><i style="background:rgba(184,134,11,.6)"></i>1× - 2×</span><span><i style="background:rgba(26,107,71,.6)"></i>≥ 2×</span></div></div>
+ <div class="panel"><table><thead><tr><th>Persentil</th><th>Exit</th><th>Gain</th></tr></thead><tbody id="pt"></tbody></table></div>
+</div>
+
+<div class="sec">Matriks gain: harga entry × harga exit</div>
+<div class="panel" style="overflow-x:auto"><table id="mx"></table></div>
+
+<div class="sec">Kenapa gain makin kecil (data siklus lalu)</div>
+<div class="two">
+ <div class="panel" style="overflow-x:auto"><table><thead><tr><th>Halving</th><th>Buy T-500</th><th>Sell T+500</th><th>Entry</th><th>Entry ÷ ATH lalu</th><th>Return</th></tr></thead><tbody>
+  <tr><td>2012</td><td>17 Jul 2011</td><td>12 Apr 2014</td><td>$13,5</td><td class="m">0,44</td><td class="pos">+2890%</td></tr>
+  <tr><td>2016</td><td>25 Feb 2015</td><td>21 Nov 2017</td><td>$235</td><td class="m">0,20</td><td class="pos">+3318%</td></tr>
+  <tr><td>2020</td><td>28 Des 2018</td><td>23 Sep 2021</td><td>$3,8k</td><td class="m">0,19</td><td class="pos">+1067%</td></tr>
+  <tr><td>2024</td><td>7 Des 2022</td><td>2 Sep 2025</td><td>$17k</td><td class="m">0,25</td><td class="pos">+560%</td></tr>
+  <tr><td><b>2028</b></td><td id="h-buy">—</td><td id="h-sell">—</td><td id="h-e">—</td><td class="m" id="h-r">—</td><td class="gd" id="h-g">—</td></tr></tbody></table>
+  <div style="font-size:10px;color:var(--t3);margin-top:8px;line-height:1.7">Return dari Bitstamp close (Bitbo/BTC500). Entry dan ATH lalu dari tabel Pantera/CoinDesk, pembulatan. Inflasi pasca-halving: 12,5% → 4,2% → 1,8% → 0,83% → 0,40% (2028).</div></div>
+ <div class="panel"><canvas id="cg" height="230"></canvas></div>
+</div>
+
+<div class="sec">Timeline window</div>
+<div class="panel"><div class="tl">
+ <div class="tr"><b id="d-buy">—</b><span>T-500 · tanggal beli versi rule (tanggal ukur, bukan klaim bottom)</span></div>
+ <div class="tr"><b id="d-h">—</b><span>Halving 2028 (estimasi, geser tergantung hashrate)</span></div>
+ <div class="tr"><b id="d-top">—</b><span>Window top siklus: hari +525 s/d +546 setelah halving (rata-rata 3 siklus lalu)</span></div>
+ <div class="tr"><b id="d-sell">—</b><span>T+500 · tanggal jual versi rule (historis nangkep 37-91% dari top)</span></div>
+</div></div>
+
+<div class="note"><b>Cara baca:</b> median exit = ATH acuan × rasio. Rasio exit ÷ ATH lalu (13,9 → 7,0 → 2,3 → 1,67) terus turun, jadi default gw lanjutkan ke ×1,3. Geser slider buat lihat sensitivitas. Kalau lu percaya siklus kembali kuat, naikin rasionya. Kalau percaya efek ETF meredam terus, turunin.</div>
+<div class="ft">Sampel cuma 4 siklus, jadi sebaran hasil sangat bergantung asumsi (rasio dan σ), bukan bukti statistik. Peluang rugi di model kecil karena model mengasumsikan siklus tetap "rhyme". Risiko struktural (kebijakan Fed, arus ETF, break pola) nggak termasuk. Gain bruto dalam USD, sebelum fee, pajak, dan kurs. Supply: ~20,1 juta (entry), ~20,5 juta (exit). Bukan financial advice.</div>
+</div>
+<script>
+/*PURE_START*/
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function randn(r){let u=0,v=0;while(!u)u=r();v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+function simulate(ath,ratio,sd,n,seed){const r=mulberry32(seed),a=new Float64Array(n),mu=Math.log(ratio);for(let i=0;i<n;i++)a[i]=ath*Math.exp(mu+sd*randn(r));a.sort();return a}
+function pct(a,p){return a[Math.min(a.length-1,Math.floor(p/100*a.length))]}
+function frac(a,fn){let c=0;for(let i=0;i<a.length;i++)if(fn(a[i]))c++;return c/a.length}
+const DAY=86400000;
+function dayNum(s){return Math.floor(Date.parse(s+'T00:00:00Z')/DAY)}
+function dstr(d){return new Date(d*DAY).toISOString().slice(0,10)}
+/*PURE_END*/
+const $=id=>document.getElementById(id);
+const YRS=1000/365.25,S_EXIT=20.5e6;
+const k=n=>'$'+(n/1000).toFixed(n>=100000?0:1)+'k';
+const pc=n=>(n>=0?'+':'')+Math.round(n*100)+'%';
+let hist,cg;
+const HIST_CAGR=[['2012',30.9],['2016',34.18],['2020',11.67],['2024',6.6]].map(([l,m])=>[l,Math.pow(m,1/YRS)-1]);
+function run(){
+  const entry=+$('entry').value,ath=+$('ath').value||126000,ratio=+$('ratio').value,sd=+$('sd').value,gold=(+$('gold').value||29)*1e12;
+  $('entryv').textContent='$'+entry.toLocaleString('en-US');$('athv').textContent='$'+ath.toLocaleString('en-US');
+  $('ratiov').textContent='×'+ratio.toFixed(2);$('sdv').textContent=sd.toFixed(2);
+  const a=simulate(ath,ratio,sd,20000,42);
+  const med=pct(a,50),mult=med/entry,cagr=Math.pow(mult,1/YRS)-1;
+  $('r-exit').textContent=k(med);$('r-exit-s').textContent='p10 '+k(pct(a,10))+' · p90 '+k(pct(a,90));
+  const g=$('r-gain');g.textContent=pc(mult-1);g.className='v '+(mult>=1?'pos':'neg');$('r-mult').textContent='×'+mult.toFixed(2);
+  const cg_=$('r-cagr');cg_.textContent=pc(cagr);cg_.className='v '+(cagr>=0?'pos':'neg');
+  $('r-loss').textContent=Math.round(frac(a,x=>x<entry)*100)+'%';
+  $('r-2x').textContent=Math.round(frac(a,x=>x>=2*entry)*100)+'%';
+  $('r-p').textContent='≥ 1,5×: '+Math.round(frac(a,x=>x>=1.5*entry)*100)+'%';
+  const mc=med*S_EXIT;$('r-mc').textContent='$'+(mc/1e12).toFixed(1)+'T';$('r-gold').textContent=Math.round(mc/gold*100)+'% dari emas';
+  // histogram
+  const W=10000,N=39,cnt=new Array(N+1).fill(0);
+  a.forEach(x=>{cnt[Math.min(N,Math.floor(Math.max(0,x-20000)/W))]++});
+  const labels=cnt.map((_,i)=>i===N?'>'+k(20000+N*W):k(20000+i*W));
+  const cols=cnt.map((_,i)=>{const c=20000+i*W+W/2;return c<entry?'rgba(139,32,32,.6)':c<2*entry?'rgba(184,134,11,.6)':'rgba(26,107,71,.6)'});
+  if(!hist){hist=new Chart($('hist'),{type:'bar',data:{labels,datasets:[{data:cnt.map(c=>c/a.length*100),backgroundColor:cols,borderWidth:0,barPercentage:1,categoryPercentage:.95}]},options:{animation:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:i=>'Exit '+i[0].label,label:c=>c.parsed.y.toFixed(1)+'% skenario'}}},scales:{x:{ticks:{font:{family:'DM Mono',size:9},color:'#a8a29c',maxRotation:0,autoSkipPadding:12},grid:{display:false}},y:{ticks:{font:{family:'DM Mono',size:9},color:'#a8a29c',callback:v=>v+'%'},grid:{color:'rgba(224,221,216,.5)'}}}}});}
+  else{hist.data.labels=labels;hist.data.datasets[0].data=cnt.map(c=>c/a.length*100);hist.data.datasets[0].backgroundColor=cols;hist.update('none');}
+  // percentile table
+  $('pt').innerHTML=[10,25,50,75,90].map(p=>{const x=pct(a,p),m=x/entry-1;return '<tr><td>p'+p+'</td><td>'+k(x)+'</td><td class="'+(m>=0?'pos':'neg')+'">'+pc(m)+'</td></tr>'}).join('')+'<tr><td>Rata-rata</td><td>'+k(a.reduce((s,x)=>s+x,0)/a.length)+'</td><td class="'+((a.reduce((s,x)=>s+x,0)/a.length)>=entry?'pos':'neg')+'">'+pc(a.reduce((s,x)=>s+x,0)/a.length/entry-1)+'</td></tr>';
+  // matrix
+  const ex=[100e3,126e3,162e3,220e3,290e3],en=[45e3,50e3,58e3,65e3,76e3,80e3];
+  let h='<thead><tr><th>Entry \\ Exit</th>'+ex.map(e=>'<th class="m">'+k(e)+'</th>').join('')+'</tr></thead><tbody>';
+  en.forEach(p=>{h+='<tr><td>'+k(p)+(p===entry?' ◂':'')+'</td>'+ex.map(e=>{const m=e/p-1,al=Math.min(.55,Math.max(.05,m/6));return '<td class="m" style="background:rgba(26,107,71,'+al.toFixed(2)+')">'+pc(m)+'</td>'}).join('')+'</tr>'});
+  $('mx').innerHTML=h+'</tbody>';
+  // history row + cagr chart
+  const est=dayNum($('est').value);
+  $('h-buy').textContent=dstr(est-500);$('h-sell').textContent=dstr(est+500);$('h-e').textContent=k(entry);
+  $('h-r').textContent=(entry/ath).toFixed(2);$('h-g').textContent=pc(mult-1)+' (sim)';
+  const lab=HIST_CAGR.map(x=>x[0]).concat('2028 sim'),dat=HIST_CAGR.map(x=>x[1]*100).concat(cagr*100);
+  const bc=['#8b2020','#1a6b47','#1a3a6b','#7a5000','#b8860b'];
+  if(!cg){cg=new Chart($('cg'),{type:'bar',data:{labels:lab,datasets:[{data:dat,backgroundColor:bc,borderWidth:0}]},options:{animation:false,plugins:{legend:{display:false},title:{display:true,text:'Return per tahun (CAGR) per siklus',font:{family:'DM Mono',size:10},color:'#6b6560'},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(0)+'% / tahun'}}},scales:{x:{ticks:{font:{family:'DM Mono',size:10},color:'#a8a29c'},grid:{display:false}},y:{ticks:{font:{family:'DM Mono',size:9},color:'#a8a29c',callback:v=>v+'%'},grid:{color:'rgba(224,221,216,.5)'}}}}});}
+  else{cg.data.datasets[0].data=dat;cg.update('none');}
+  // timeline
+  $('d-buy').textContent=dstr(est-500);$('d-h').textContent=dstr(est);$('d-top').textContent=dstr(est+525).slice(0,7)+' (±)';$('d-sell').textContent=dstr(est+500);
+}
+document.querySelectorAll('input').forEach(i=>i.addEventListener('input',run));
+document.querySelectorAll('.btn[data-r]').forEach(b=>b.addEventListener('click',()=>{$('ratio').value=b.dataset.r;document.querySelectorAll('.btn[data-r]').forEach(x=>x.classList.remove('on'));b.classList.add('on');run()}));
+document.querySelectorAll('.btn[data-e]').forEach(b=>b.addEventListener('click',()=>{$('entry').value=b.dataset.e;run()}));
+$('live').addEventListener('click',async()=>{$('msg').textContent='Mengambil harga…';
+  try{const c=new AbortController();setTimeout(()=>c.abort(),8000);const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd',{signal:c.signal});if(!r.ok)throw new Error('HTTP '+r.status);
+    const p=(await r.json()).bitcoin.usd;$('entry').value=Math.min(100000,Math.max(35000,Math.round(p/500)*500));$('msg').textContent='Harga live: $'+Math.round(p).toLocaleString('en-US');run();}
+  catch(e){$('msg').textContent='Gagal ambil harga ('+e.message+'). Isi manual pakai slider. Kalau buka di preview Claude, download dan buka di Chrome.';}});
+run();
+</script></body></html>

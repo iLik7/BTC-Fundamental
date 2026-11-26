@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPX Live Tracker + 4chan Anon</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap');
+  :root{--bg:#f6f7fb;--surface:#ffffff;--surface2:#f0f1f6;--border:rgba(20,20,50,0.09);--text:#181828;--muted:#6b6b80;--btc:#e8850a;--spx:#00a884;--s1:#6c5ce7;--s2:#00a884;--s3:#e67e22;--anon:#d63384;--red:#e63946;--green:#00a884;--avg:#b88900;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;padding:16px}
+  .live-bar{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;flex-wrap:wrap;gap:8px;box-shadow:0 1px 3px rgba(20,20,50,0.04)}
+  .live-left{display:flex;align-items:center;gap:10px}
+  .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.7)}}
+  .live-token{font-size:13px;font-weight:800}
+  .live-price-usd{font-family:'Space Mono',monospace;font-size:22px;font-weight:700;color:var(--green);transition:background 0.3s;border-radius:4px;padding:0 3px}
+  .live-price-usd.flash-up{background:rgba(0,168,132,0.18)}
+  .live-price-usd.flash-down{background:rgba(230,57,70,0.18);color:var(--red)}
+  .live-price-idr{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);margin-top:1px}
+  .live-change{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:6px}
+  .change-pos{background:rgba(0,168,132,0.12);color:var(--green)}
+  .change-neg{background:rgba(230,57,70,0.12);color:var(--red)}
+  .refresh-info{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+  .countdown{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted)}
+  .refresh-btn{font-family:'Space Mono',monospace;font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:4px;cursor:pointer;transition:all 0.2s}
+  .refresh-btn:hover{border-color:rgba(20,20,50,0.2);color:var(--text)}
+  .err-banner{font-family:'Space Mono',monospace;font-size:10px;color:var(--red);background:rgba(230,57,70,0.08);border:1px solid rgba(230,57,70,0.25);border-radius:6px;padding:7px 12px;margin-bottom:10px;display:none}
+  .ws-status{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px}
+  .ws-live{color:var(--green)}
+  .ws-warn{color:#d18a00}
+  .ws-dead{color:var(--red)}
+  .debug-box{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px;margin-bottom:10px;line-height:1.7;display:none}
+  .debug-box.on{display:block}
+  .debug-box b{color:var(--text)}
+  .pos-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .pos-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;box-shadow:0 1px 3px rgba(20,20,50,0.04)}
+  .pc-lbl{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.5px;margin-bottom:4px}
+  .pc-val{font-family:'Space Mono',monospace;font-size:14px;font-weight:700}
+  .pc-sub{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px}
+  .loss-wrap{height:4px;background:rgba(20,20,50,0.06);border-radius:2px;margin-top:6px;overflow:hidden}
+  .loss-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,#e63946,#ff8fa3);transition:width 0.8s ease}
+  .be-note{background:rgba(184,137,0,0.07);border:1px solid rgba(184,137,0,0.22);border-radius:8px;padding:9px 13px;margin-bottom:12px;font-family:'Space Mono',monospace;font-size:10px;color:var(--avg);line-height:1.7}
+  .tape-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px;box-shadow:0 1px 3px rgba(20,20,50,0.04)}
+  .tape-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px}
+  .tape-lbl{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.4px}
+  .tape-stats{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);display:flex;gap:12px}
+  .tape-stats b{color:var(--text)}
+  .tape-container{position:relative;height:130px;width:100%}
+  .anon-banner{background:linear-gradient(135deg,rgba(214,51,132,0.06),rgba(108,92,231,0.06));border:1px solid rgba(214,51,132,0.22);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+  .anon-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+  .anon-badge{font-family:'Space Mono',monospace;font-size:9px;font-weight:700;background:rgba(214,51,132,0.14);color:var(--anon);padding:3px 8px;border-radius:4px;letter-spacing:0.5px}
+  .anon-title{font-size:12px;font-weight:700;color:var(--text)}
+  .anon-prob{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-left:auto}
+  .anon-targets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
+  .anon-tgt{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 9px;text-align:center}
+  .anon-tgt-lbl{font-family:'Space Mono',monospace;font-size:8px;color:var(--muted);margin-bottom:3px}
+  .anon-tgt-val{font-family:'Space Mono',monospace;font-size:12px;font-weight:700}
+  .anon-desc{font-size:11px;color:var(--muted);line-height:1.6}
+  .anon-desc b{color:var(--text)}
+  .implied-card{background:rgba(214,51,132,0.04);border:1px solid rgba(214,51,132,0.18);border-radius:8px;padding:10px 13px;margin-bottom:12px}
+  .imp-title{font-family:'Space Mono',monospace;font-size:9px;color:var(--anon);letter-spacing:0.5px;margin-bottom:8px}
+  .imp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:7px}
+  .imp-item{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px}
+  .imp-lbl{font-size:9px;color:var(--muted);font-family:'Space Mono',monospace;margin-bottom:3px}
+  .imp-spx{font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:var(--anon)}
+  .imp-idr{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-top:1px}
+  .imp-port{font-family:'Space Mono',monospace;font-size:10px;color:var(--green);margin-top:2px}
+  .imp-pnl{font-family:'Space Mono',monospace;font-size:9px;margin-top:1px}
+  .imp-note{font-size:8px;color:var(--muted);margin-top:2px;font-family:'Space Mono',monospace}
+  .tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+  .tab{padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:'Syne',sans-serif;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.2s}
+  .tab.a1{border-color:var(--s1);color:var(--s1);background:rgba(108,92,231,0.08)}
+  .tab.a2{border-color:var(--s2);color:var(--s2);background:rgba(0,168,132,0.08)}
+  .tab.a3{border-color:var(--s3);color:var(--s3);background:rgba(230,126,34,0.08)}
+  .tab.a4{border-color:var(--anon);color:var(--anon);background:rgba(214,51,132,0.08)}
+  .sc-info{display:none;border-radius:7px;border-left:3px solid;padding:9px 13px;margin-bottom:10px;font-size:11px;color:var(--muted);line-height:1.6;background:var(--surface);animation:fi 0.2s ease}
+  .sc-info.vis{display:block}
+  @keyframes fi{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+  .chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px;box-shadow:0 1px 3px rgba(20,20,50,0.04)}
+  .chart-lbl{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px;letter-spacing:0.4px}
+  .chart-container{position:relative;height:280px;width:100%}
+  .dual-wrap{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  @media(max-width:600px){.dual-wrap{grid-template-columns:1fr}}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .leg{display:flex;align-items:center;gap:5px;font-family:'Space Mono',monospace;font-size:9px;color:var(--muted)}
+  .leg-line{width:16px;height:2px;border-radius:1px}
+  .leg-dashed{width:16px;height:0;border-top:2px dashed;opacity:0.7}
+  .leg-dot{width:7px;height:7px;border-radius:50%}
+  .leg-live{width:16px;height:0;border-top:2px dashed}
+  .proj-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px;margin-bottom:12px}
+  .proj-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 11px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(20,20,50,0.04)}
+  .proj-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+  .pj-lbl{font-size:9px;color:var(--muted);margin-bottom:3px;font-family:'Space Mono',monospace}
+  .pj-idr{font-family:'Space Mono',monospace;font-size:12px;font-weight:700}
+  .pj-usd{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-top:1px}
+  .pj-pnl{font-family:'Space Mono',monospace;font-size:9px;margin-top:2px}
+  .pj-note{font-size:8px;color:var(--muted);margin-top:3px;font-family:'Space Mono',monospace}
+  .divider{height:1px;background:var(--border);margin:10px 0}
+  .sec-lbl{font-size:9px;color:var(--muted);font-family:'Space Mono',monospace;letter-spacing:0.5px;margin-bottom:7px}
+</style>
+</head>
+<body>
+
+<div class="live-bar">
+  <div class="live-left">
+    <div class="pulse" id="pulse-dot"></div>
+    <div>
+      <div class="live-token">SPX6900 <span style="font-size:10px;color:var(--muted);font-weight:400">LIVE</span></div>
+      <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">
+        <div class="live-price-usd" id="price-usd">—</div>
+        <div class="live-change" id="price-change">—</div>
+      </div>
+      <div class="live-price-idr" id="price-idr">≈ Rp—</div>
+    </div>
+  </div>
+  <div class="refresh-info">
+    <div class="countdown" id="countdown">sync in 60s</div>
+    <button class="refresh-btn" onclick="fetchPrice(true)">↻ sync now</button>
+    <button class="refresh-btn" onclick="document.getElementById('debug-box').classList.toggle('on')">ⓘ diag</button>
+    <div class="ws-status" id="ws-status">● connecting...</div>
+    <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px" id="last-update">—</div>
+  </div>
+</div>
+
+<div class="err-banner" id="err-banner">⚠ Gagal fetch — menampilkan data terakhir</div>
+
+<div class="debug-box" id="debug-box">
+  <div>source: <b id="dbg-src">—</b></div>
+  <div>ticks received: <b id="dbg-ticks">0</b></div>
+  <div>last tick: <b id="dbg-last">—</b> (<span id="dbg-age">—</span>s ago)</div>
+  <div>live USD: <b id="dbg-usd">—</b></div>
+  <div>live IDR: <b id="dbg-idr">—</b></div>
+  <div>idr rate cache: <b id="dbg-rate">—</b></div>
+  <div>ws state: <b id="dbg-ws">—</b></div>
+  <div>tape points: <b id="dbg-tape">0</b></div>
+  <div>NOW label: <b id="dbg-now-label">—</b></div>
+  <div>today: <b id="dbg-today">—</b></div>
+</div>
+
+<div class="tape-card">
+  <div class="tape-header">
+    <div class="tape-lbl">⚡ LIVE TAPE — 60 DETIK TERAKHIR (SCROLLING REALTIME)</div>
+    <div class="tape-stats">
+      <span>min <b id="tape-min">—</b></span>
+      <span>max <b id="tape-max">—</b></span>
+      <span>Δ <b id="tape-delta">—</b></span>
+      <span>n=<b id="tape-count">0</b></span>
+    </div>
+  </div>
+  <div class="tape-container"><canvas id="tapeChart"></canvas></div>
+</div>
+
+<div class="pos-grid">
+  <div class="pos-card">
+    <div class="pc-lbl">MODAL AWAL</div>
+    <div class="pc-val">Rp18,307,416</div>
+    <div class="pc-sub">1,080.93 SPX @ Rp16,937</div>
+  </div>
+  <div class="pos-card">
+    <div class="pc-lbl">NILAI SEKARANG</div>
+    <div class="pc-val" id="val-now" style="color:var(--red)">—</div>
+    <div class="pc-sub" id="val-now-sub">menghitung...</div>
+  </div>
+  <div class="pos-card">
+    <div class="pc-lbl">FLOATING PNL</div>
+    <div class="pc-val" id="pnl-val" style="color:var(--red)">—</div>
+    <div class="pc-sub" id="pnl-pct">—</div>
+    <div class="loss-wrap"><div class="loss-fill" id="loss-bar" style="width:0%"></div></div>
+  </div>
+  <div class="pos-card">
+    <div class="pc-lbl">BREAKEVEN TARGET</div>
+    <div class="pc-val" style="color:var(--avg)">Rp16,937</div>
+    <div class="pc-sub" id="be-usd">≈ $— · butuh +—%</div>
+  </div>
+</div>
+<div class="be-note" id="be-note">Menghitung...</div>
+
+<div class="anon-banner">
+  <div class="anon-header">
+    <div class="anon-badge">4CHAN ANON · SBC7H7La</div>
+    <div class="anon-title">Forecast 2026 — "Outputs, not opinions"</div>
+    <div class="anon-prob">Called BTC $126K top Oct 2025 ✓</div>
+  </div>
+  <div class="anon-targets">
+    <div class="anon-tgt"><div class="anon-tgt-lbl">BITCOIN</div><div class="anon-tgt-val" style="color:var(--btc)">$190K</div></div>
+    <div class="anon-tgt"><div class="anon-tgt-lbl">ETHEREUM</div><div class="anon-tgt-val" style="color:#6b5ce7">$15K</div></div>
+    <div class="anon-tgt"><div class="anon-tgt-lbl">SOLANA</div><div class="anon-tgt-val" style="color:#7c3aed">$1,000</div></div>
+  </div>
+  <div class="anon-desc">Anon menyebut target ini sebagai <b>"outputs"</b> dari simulasi liquidity flow, monetary policy cycle, dan historical crypto behavior — bukan opini. Dia juga secara eksplisit menyebut <b>late-cycle rotation dari major coins ke meme coin</b> akan terjadi. Sebelumnya dia berhasil call BTC top $126,198 pada 6 Oktober 2025, hampir 2 tahun sebelumnya.</div>
+</div>
+
+<div class="implied-card">
+  <div class="imp-title">▸ IMPLIED SPX PRICE JIKA ANON BENAR — KORELASI HISTORIS BTC→SPX</div>
+  <div class="imp-grid" id="implied-grid"></div>
+</div>
+
+<div class="tabs">
+  <button class="tab a1" onclick="setS(1,this)">S1 — REVENGE 2026</button>
+  <button class="tab" onclick="setS(2,this)">S2 — 2-YEAR CYCLE</button>
+  <button class="tab" onclick="setS(3,this)">S3 — 4-YEAR CLASSIC</button>
+  <button class="tab" onclick="setS(4,this)">S4 — 4CHAN ANON</button>
+</div>
+
+<div class="sc-info vis" id="si1" style="border-color:var(--s1)"><b style="color:var(--text)">S1 — Revenge 2026 (P:30%)</b> · BTC ATH baru Q3–Q4 2026. Altseason kuat. SPX bisa tembus breakeven di Q3 2026 dan lanjut ke $5–$8. Waktu tunggu: <b style="color:var(--s1)">6–9 bulan</b>.</div>
+<div class="sc-info" id="si2" style="border-color:var(--s2)"><b style="color:var(--text)">S2 — 2-Year Cycle (P:40%)</b> · Dua peak dalam 4 tahun. Breakeven Q3 2026, peak besar datang <b style="color:var(--s2)">2028</b>. SPX bisa tembus $12–$18.</div>
+<div class="sc-info" id="si3" style="border-color:var(--s3)"><b style="color:var(--text)">S3 — 4-Year Classic (P:30%)</b> · SPX bisa turun ke $0.07–$0.09 dulu. Breakeven di <b style="color:var(--s3)">2027–2028</b>. Peak 2029 bisa $14–$20.</div>
+<div class="sc-info" id="si4" style="border-color:var(--anon)"><b style="color:var(--text)">S4 — 4chan Anon (P:20%)</b> · BTC $190K + ETH $15K di 2026. Anon secara eksplisit menyebut meme coin rotation setelah major coins peak. <b style="color:var(--anon)">SPX implied $8–$15</b> berdasarkan korelasi BTC→altcoin historis. Skenario paling agresif tapi punya track record: anon ini berhasil call BTC top $126K dua tahun sebelumnya.</div>
+
+<div class="legend">
+  <div class="leg"><div class="leg-line" style="background:rgba(20,20,50,0.35)"></div>Historis</div>
+  <div class="leg"><div class="leg-dashed" style="border-color:var(--s1)"></div>S1</div>
+  <div class="leg"><div class="leg-dashed" style="border-color:var(--s2)"></div>S2</div>
+  <div class="leg"><div class="leg-dashed" style="border-color:var(--s3)"></div>S3</div>
+  <div class="leg"><div class="leg-dashed" style="border-color:var(--anon)"></div>S4·Anon</div>
+  <div class="leg"><div class="leg-line" style="background:var(--avg);opacity:0.7"></div>Avg cost</div>
+  <div class="leg"><div class="leg-live" style="border-color:var(--red)"></div>LIVE price</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--red)"></div>NOW</div>
+</div>
+
+<div class="chart-wrap">
+  <div class="chart-lbl">SPX6900 / IDR — LOG SCALE · SEMUA SKENARIO + GARIS LIVE HORIZONTAL · NOW = <span id="now-lbl-display" style="color:var(--red)">—</span></div>
+  <div class="chart-container"><canvas id="mainChart"></canvas></div>
+</div>
+
+<div class="chart-wrap">
+  <div class="chart-lbl">S4 ANON — BTC ($) vs SPX IDR · LINEAR CORRELATION PROJECTION</div>
+  <div class="dual-wrap">
+    <div>
+      <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--btc);margin-bottom:4px">BITCOIN / USD</div>
+      <div style="height:200px"><canvas id="btcAnonChart"></canvas></div>
+    </div>
+    <div>
+      <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--anon);margin-bottom:4px">SPX6900 / IDR (ANON IMPLIED)</div>
+      <div style="height:200px"><canvas id="spxAnonChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="sec-lbl" id="proj-lbl">PROYEKSI PORTOFOLIO — S1</div>
+<div class="proj-grid" id="proj-grid"></div>
+<div class="divider"></div>
+<div class="sec-lbl">TARGET PRICE KALAU SPX CAPAI:</div>
+<div class="proj-grid" id="target-grid"></div>
+
+<script>
+// ── CONSTANTS ─────────────────────────────────────────
+const HOLDINGS = 1080.93;
+const AVG_IDR  = 16937.08;
+const MODAL    = AVG_IDR * HOLDINGS;
+const IDR_FALLBACK = 16350;
+
+let liveUSD = null, liveIDR = null, live24h = null;
+let idrRateCache = null;
+let prevUSD = null;
+let countdown = 60, timer = null, currentS = 1;
+let mainChartInst = null, btcChartInst = null, spxAnonChartInst = null;
+let tapeChartInst = null;
+
+// ══════════════════════════════════════════════════════
+// 🎯 DYNAMIC TIMELINE — auto-detect "NOW" dari tanggal
+// ══════════════════════════════════════════════════════
+const Q_LABELS = ['Jan','Apr','Jul','Okt'];
+const START_YEAR = 2023, START_Q = 3;   // Okt 2023
+
+function buildTimeline(){
+  const today = new Date();
+  const nowQ = Math.floor(today.getMonth()/3);   // 0=Jan-Mar, 1=Apr-Jun, 2=Jul-Sep, 3=Okt-Des
+  const nowY = today.getFullYear();
+  const endYear = nowY + 3;
+
+  const labels = [];
+  let nowIdx = 0;
+  let year = START_YEAR, q = START_Q;
+
+  while(year < endYear){
+    const isNow = (year === nowY && q === nowQ);
+    const lbl = Q_LABELS[q] + ' ' + String(year).slice(-2);
+    if(isNow) nowIdx = labels.length;
+    labels.push(isNow ? lbl + '▼' : lbl);
+    q++;
+    if(q > 3){ q = 0; year++; }
+  }
+  return { labels, nowIdx, nowLabel: labels[nowIdx] };
+}
+
+const TL = buildTimeline();
+const LABELS = TL.labels;
+const NOW_IDX = TL.nowIdx;
+const NOW_LABEL = TL.nowLabel;
+
+console.log('📅 Today:', new Date().toISOString().slice(0,10));
+console.log('📅 NOW_IDX:', NOW_IDX, '→', NOW_LABEL);
+console.log('📅 Labels:', LABELS.join(' | '));
+
+// ── DEBUG STATE ───────────────────────────────────────
+const DBG = {
+  source:'—', ticks:0, lastTick:0, wsState:'idle',
+  update(){
+    document.getElementById('dbg-src').textContent = this.source;
+    document.getElementById('dbg-ticks').textContent = this.ticks;
+    if(this.lastTick){
+      const age = ((Date.now()-this.lastTick)/1000).toFixed(1);
+      document.getElementById('dbg-last').textContent = new Date(this.lastTick).toLocaleTimeString('id-ID');
+      document.getElementById('dbg-age').textContent = age;
+    }
+    document.getElementById('dbg-usd').textContent = liveUSD ? '$'+liveUSD.toFixed(5) : '—';
+    document.getElementById('dbg-idr').textContent = liveIDR ? 'Rp'+Math.round(liveIDR) : '—';
+    document.getElementById('dbg-rate').textContent = idrRateCache ? 'Rp'+Math.round(idrRateCache)+'/USD' : '—';
+    document.getElementById('dbg-ws').textContent = this.wsState;
+    document.getElementById('dbg-tape').textContent = tapePrices.length;
+    document.getElementById('dbg-now-label').textContent = NOW_LABEL + ' (idx ' + NOW_IDX + ')';
+    document.getElementById('dbg-today').textContent = new Date().toLocaleString('id-ID');
+  }
+};
+setInterval(()=>DBG.update(), 1000);
+
+// ── LIVE TAPE ─────────────────────────────────────────
+const TAPE_MAX = 60;
+const tapePrices = [];
+const tapeTimes  = [];
+let tapeMin = Infinity, tapeMax = -Infinity;
+
+function pushTape(priceIdr){
+  if(!isFinite(priceIdr) || priceIdr <= 0) return;
+  tapePrices.push(priceIdr);
+  tapeTimes.push(new Date());
+  if(tapePrices.length > TAPE_MAX){ tapePrices.shift(); tapeTimes.shift(); }
+  tapeMin = Math.min(...tapePrices);
+  tapeMax = Math.max(...tapePrices);
+  renderTape();
+}
+
+function renderTape(){
+  if(!tapeChartInst) return;
+  const labels = tapeTimes.map(t => t.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+  tapeChartInst.data.labels = labels;
+  tapeChartInst.data.datasets[0].data = tapePrices.slice();
+
+  const dEl = document.getElementById('tape-delta');
+  if(tapePrices.length >= 2){
+    const d = tapePrices[tapePrices.length-1] - tapePrices[0];
+    dEl.textContent = (d>=0?'+':'') + 'Rp' + Math.round(Math.abs(d));
+    dEl.style.color = d>=0 ? 'var(--green)' : 'var(--red)';
+  }
+  document.getElementById('tape-min').textContent = tapeMin<Infinity ? 'Rp'+Math.round(tapeMin) : '—';
+  document.getElementById('tape-max').textContent = tapeMax>-Infinity ? 'Rp'+Math.round(tapeMax) : '—';
+  document.getElementById('tape-count').textContent = tapePrices.length;
+
+  if(tapePrices.length >= 2){
+    const up = tapePrices[tapePrices.length-1] >= tapePrices[0];
+    tapeChartInst.data.datasets[0].borderColor = up ? '#00a884' : '#e63946';
+    tapeChartInst.data.datasets[0].backgroundColor = up ? 'rgba(0,168,132,0.10)' : 'rgba(230,57,70,0.10)';
+  }
+  tapeChartInst.update('none');
+}
+
+function buildTapeChart(){
+  const ctx = document.getElementById('tapeChart').getContext('2d');
+  tapeChartInst = new Chart(ctx, {
+    type:'line',
+    data:{labels:[],datasets:[{
+      label:'SPX/IDR', data:[],
+      borderColor:'#00a884', backgroundColor:'rgba(0,168,132,0.10)',
+      borderWidth:2, pointRadius:0, fill:true, tension:0.25, spanGaps:true
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:0},
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#ffffff',borderColor:'rgba(20,20,50,0.12)',borderWidth:1,titleColor:'#888',bodyColor:'#181828',titleFont:{family:'Space Mono',size:9},bodyFont:{family:'Space Mono',size:9},callbacks:{label:c=>{
+        const v = c.parsed.y;
+        const usd = liveUSD && liveIDR ? v/(liveIDR/liveUSD) : v/IDR_FALLBACK;
+        return ` Rp${fmt(v)} (~$${usd.toFixed(5)})`;
+      }}}},
+      scales:{x:{ticks:{color:'#888',font:{family:'Space Mono',size:8},maxRotation:0,autoSkip:true,maxTicksLimit:6},grid:{color:'rgba(20,20,50,0.05)'}},y:{ticks:{color:'#888',font:{family:'Space Mono',size:8},callback:v=>'Rp'+fmt(v)},grid:{color:'rgba(20,20,50,0.05)'}}}
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// DATA HISTORIS — extended ke kuarter terkini
+// ══════════════════════════════════════════════════════
+// Historis SPX USD per kuarter (indeks sama dgn LABELS)
+// Index 0=Okt23, 1=Jan24, ..., 8=Okt25 (last verified), 9+=extended
+const HIST_USD_RAW = [0.011,0.012,0.020,0.011,0.913,0.866,0.520,2.27,0.780];
+const BTC_HIST_RAW = [34000,42000,65000,57000,73000,98000,83000,100000,126000];
+
+// Extend otomatis: setelah index 8, isi dengan interpolasi turun ke live
+function buildHistUSD(totalLen){
+  const arr = HIST_USD_RAW.slice();
+  const last = HIST_USD_RAW[HIST_USD_RAW.length-1]; // 0.780
+  const target = liveUSD || 0.30;
+  const span = NOW_IDX - (HIST_USD_RAW.length-1);
+  for(let i = HIST_USD_RAW.length; i <= NOW_IDX; i++){
+    const t = (i - (HIST_USD_RAW.length-1)) / Math.max(span, 1);
+    arr[i] = last + (target - last) * t;
+  }
+  while(arr.length < totalLen) arr.push(null);
+  return arr;
+}
+
+function buildBtcHist(totalLen){
+  const arr = BTC_HIST_RAW.slice();
+  const last = BTC_HIST_RAW[BTC_HIST_RAW.length-1];
+  const target = 85000;
+  const span = NOW_IDX - (BTC_HIST_RAW.length-1);
+  for(let i = BTC_HIST_RAW.length; i <= NOW_IDX; i++){
+    const t = (i - (BTC_HIST_RAW.length-1)) / Math.max(span, 1);
+    arr[i] = Math.round(last + (target - last) * t);
+  }
+  while(arr.length < totalLen) arr.push(null);
+  return arr;
+}
+
+const HIST_USD = buildHistUSD(LABELS.length);
+const BTC_HIST_USD = buildBtcHist(LABELS.length);
+
+// ── SCENARIO DATA ─────────────────────────────────────
+// Skenario array di-index dari Okt 23. Nilai proyeksi mulai dari index 10.
+// Kalau NOW_IDX > 10, bagian masa lalu tetap ditampilkan (visual gap)
+const SC = {
+  1:{color:'#6c5ce7',
+    usd:[null,null,null,null,null,null,null,null,null,null,0.380,1.20,2.80,5.00,3.50,2.00,1.50,1.80,3.50,8.00,12.00,9.00],
+    milestones:[
+      {label:'Q4 2026',usd:0.38,desc:'Konsolidasi'},
+      {label:'Q1 2027',usd:1.20,desc:'Breakeven zone'},
+      {label:'Q2 2027',usd:2.80,desc:'Altseason'},
+      {label:'Q3 2027',usd:5.00,desc:'Peak S1'},
+      {label:'2028',usd:12.00,desc:'Cycle berikutnya'},
+    ]},
+  2:{color:'#00a884',
+    usd:[null,null,null,null,null,null,null,null,null,null,0.450,1.50,3.50,4.50,2.80,1.50,0.90,1.20,2.80,7.50,14.00,10.00],
+    milestones:[
+      {label:'Q4 2026',usd:0.45,desc:'Recovery'},
+      {label:'Q1 2027',usd:1.50,desc:'Breakeven'},
+      {label:'Q2 2027',usd:3.50,desc:'2Y Peak #1'},
+      {label:'Q3 2027',usd:4.50,desc:'Peak wave 1'},
+      {label:'2028',usd:14.00,desc:'2Y Peak #2'},
+    ]},
+  3:{color:'#e67e22',
+    usd:[null,null,null,null,null,null,null,null,null,null,0.220,0.130,0.090,0.070,0.090,0.180,0.380,0.850,2.50,6.50,14.00,11.00],
+    milestones:[
+      {label:'Q1 2027',usd:0.09,desc:'Kapitulasi'},
+      {label:'Q3 2027',usd:0.18,desc:'Recovery'},
+      {label:'Q1 2028',usd:0.38,desc:'Akumulasi'},
+      {label:'Q3 2028',usd:2.50,desc:'Bull baru'},
+      {label:'2029',usd:14.00,desc:'Peak S3'},
+    ]},
+  4:{color:'#d63384',
+    usd:[null,null,null,null,null,null,null,null,null,null,0.55,2.50,7.50,12.00,8.00,5.00,3.50,null,null,null,null,null],
+    milestones:[
+      {label:'Q4 2026',usd:0.55,desc:'BTC $120K zone'},
+      {label:'Q1 2027',usd:2.50,desc:'BTC $160K — meme rotation mulai'},
+      {label:'Q2 2027',usd:7.50,desc:'BTC $190K — full altseason'},
+      {label:'Q3 2027',usd:12.00,desc:'SPX peak anon scenario'},
+      {label:'Q1 2028',usd:5.00,desc:'Post-peak correction'},
+    ],
+    btcUSD:[null,null,null,null,null,null,null,null,null,null,110000,150000,190000,170000,130000,90000,75000,null,null,null,null,null]}
+};
+
+function fmt(n){return new Intl.NumberFormat('id-ID').format(Math.round(n))}
+function fmtU(n){return n>=1?n.toFixed(3):n.toFixed(5)}
+function fmtPct(n){return(n>=0?'+':'')+n.toFixed(2)+'%'}
+function getIdr(usd){return liveIDR?(usd*(liveIDR/liveUSD)):(usd*IDR_FALLBACK)}
+
+// ── FETCH ─────────────────────────────────────────────
+async function fetchPrice(manual=false){
+  if(manual) countdown=60;
+  const dot=document.getElementById('pulse-dot');
+  try{
+    const url='https://api.coingecko.com/api/v3/simple/price?ids=spx6900&vs_currencies=usd,idr&include_24hr_change=true';
+    const res=await fetch(url,{signal:AbortSignal.timeout(8000)});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const d=(await res.json())['spx6900'];
+    if(!d) throw new Error('no data');
+    if(d.usd && d.idr) idrRateCache = d.idr / d.usd;
+
+    if(!wsConn || wsConn.readyState !== 1){
+      prevUSD = liveUSD;
+      liveUSD=d.usd; liveIDR=d.idr; live24h=d.usd_24h_change;
+      if(prevUSD !== liveUSD && liveUSD !== null){
+        pushTape(liveIDR || liveUSD*IDR_FALLBACK);
+      }
+      DBG.source = 'coingecko-poll';
+      DBG.lastTick = Date.now();
+      DBG.ticks++;
+      updateUI(); updateNowPoint(); updateMainChart(); updateAnonCharts();
+      renderProjCards(currentS); renderTargetCards(); renderImplied();
+    } else if(idrRateCache){
+      liveIDR = liveUSD * idrRateCache;
+    }
+    document.getElementById('err-banner').style.display='none';
+    dot.style.background='var(--green)';
+  }catch(e){
+    console.warn('fetchPrice err', e);
+    dot.style.background='var(--red)';
+    document.getElementById('err-banner').style.display='block';
+    if(liveUSD) updateUI();
+  }
+  document.getElementById('last-update').textContent='synced '+new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+function startTimer(){
+  if(timer) clearInterval(timer);
+  countdown=60;
+  timer=setInterval(()=>{
+    countdown--;
+    document.getElementById('countdown').textContent='sync in '+countdown+'s';
+    if(countdown<=0){countdown=60;fetchPrice(false);}
+  },1000);
+}
+
+// ── WS CHAIN ──────────────────────────────────────────
+let wsConn = null;
+let wsGotData = false;
+let wsOpenTimer = null;
+let wsReconnectTimer = null;
+let wsLastMsgTime = 0;
+
+const WS_SOURCES = [
+  {name:'binance-fut', url:'wss://fstream.binance.com/ws/spxusdt@ticker',
+   parse: d => { if(!d.c) return null; return { usd: parseFloat(d.c), chg: parseFloat(d.P) }; }},
+  {name:'okx-swap', url:'wss://ws.okx.com:8443/ws/v5/public',
+   onopen: ws => ws.send(JSON.stringify({op:'subscribe',args:[{channel:'tickers',instId:'SPX-USDT-SWAP'}]})),
+   parse: d => { const a=d.data&&d.data[0]; if(!a||!a.last) return null; const usd=parseFloat(a.last); const open=parseFloat(a.open24h); return {usd, chg: open?((usd-open)/open)*100:0}; }},
+  {name:'okx-spot', url:'wss://ws.okx.com:8443/ws/v5/public',
+   onopen: ws => ws.send(JSON.stringify({op:'subscribe',args:[{channel:'tickers',instId:'SPX-USDT'}]})),
+   parse: d => { const a=d.data&&d.data[0]; if(!a||!a.last) return null; const usd=parseFloat(a.last); const open=parseFloat(a.open24h); return {usd, chg: open?((usd-open)/open)*100:0}; }},
+  {name:'gate-spot', url:'wss://api.gateio.ws/ws/v4/',
+   onopen: ws => ws.send(JSON.stringify({time:Math.floor(Date.now()/1000),channel:'spot.tickers',event:'subscribe',payload:['SPX_USDT']})),
+   parse: d => { if(d.channel!=='spot.tickers'||!d.result) return null; const r=d.result; if(!r.last) return null; return {usd:parseFloat(r.last), chg:parseFloat(r.change_percentage)}; }}
+];
+
+function setWsStatus(state, text){
+  const el = document.getElementById('ws-status');
+  if(state==='live'){ el.textContent='● live ws · '+(text||''); el.className='ws-status ws-live'; DBG.wsState='live:'+(text||''); }
+  else if(state==='warn'){ el.textContent='● '+(text||'retry'); el.className='ws-status ws-warn'; DBG.wsState='warn'; }
+  else if(state==='dead'){ el.textContent='● ws offline — pakai polling'; el.className='ws-status ws-dead'; DBG.wsState='dead'; }
+  else { el.textContent='● connecting...'; el.className='ws-status'; DBG.wsState='connecting'; }
+}
+
+function tryWs(idx){
+  if(idx >= WS_SOURCES.length){
+    setWsStatus('dead');
+    if(timer){ clearInterval(timer); timer=null; }
+    countdown=10;
+    timer = setInterval(()=>{
+      countdown--;
+      document.getElementById('countdown').textContent='poll in '+countdown+'s';
+      if(countdown<=0){countdown=10;fetchPrice(false);}
+    },1000);
+    return;
+  }
+  const src = WS_SOURCES[idx];
+  setWsStatus('warn', 'connect '+src.name);
+
+  let ws;
+  try { ws = new WebSocket(src.url); } catch(e){ return tryWs(idx+1); }
+  wsConn = ws;
+  wsGotData = false;
+
+  wsOpenTimer = setTimeout(()=>{
+    if(!wsGotData){ try{ ws.close(); }catch(e){} tryWs(idx+1); }
+  }, 6000);
+
+  ws.onopen = ()=>{
+    setWsStatus('live', src.name);
+    if(src.onopen) try{ src.onopen(ws); }catch(e){}
+  };
+
+  ws.onmessage = evt => {
+    let d;
+    try { d = JSON.parse(evt.data); } catch(e){ return; }
+    const parsed = src.parse(d);
+    if(!parsed || !isFinite(parsed.usd) || parsed.usd <= 0) return;
+    if(!wsGotData){ wsGotData = true; clearTimeout(wsOpenTimer); }
+
+    prevUSD = liveUSD;
+    liveUSD = parsed.usd;
+    if(isFinite(parsed.chg)) live24h = parsed.chg;
+    if(idrRateCache) liveIDR = liveUSD * idrRateCache;
+    else if(liveIDR && prevUSD) liveIDR = liveUSD * (liveIDR/prevUSD);
+
+    wsLastMsgTime = Date.now();
+    DBG.source = src.name;
+    DBG.ticks++;
+    DBG.lastTick = wsLastMsgTime;
+
+    updateUI();
+    updateNowPoint();
+    flashPrice(prevUSD, liveUSD);
+
+    if(!window.__lastTape || Date.now() - window.__lastTape > 800){
+      pushTape(liveIDR || liveUSD*IDR_FALLBACK);
+      window.__lastTape = Date.now();
+    }
+    if(!window.__lastRerender || Date.now() - window.__lastRerender > 3000){
+      renderImplied();
+      renderProjCards(currentS);
+      renderTargetCards();
+      window.__lastRerender = Date.now();
+    }
+  };
+
+  ws.onerror = ()=>{};
+  ws.onclose = ()=>{
+    clearTimeout(wsOpenTimer);
+    if(!wsGotData){ tryWs(idx+1); }
+    else { setWsStatus('warn', 'reconnect...'); wsReconnectTimer = setTimeout(()=>tryWs(0), 3000); }
+  };
+}
+
+setInterval(()=>{
+  if(wsLastMsgTime && Date.now() - wsLastMsgTime > 20000){
+    if(wsConn){ try{ wsConn.close(); }catch(e){} }
+  }
+}, 8000);
+
+function flashPrice(prev, now){
+  const el = document.getElementById('price-usd');
+  if(prev === null || prev === undefined || prev === now) return;
+  const cls = now > prev ? 'flash-up' : 'flash-down';
+  el.classList.add(cls);
+  setTimeout(()=>el.classList.remove(cls), 250);
+}
+
+// ── UPDATE UI ─────────────────────────────────────────
+function updateUI(){
+  if(!liveUSD) return;
+  const idr=liveIDR||(liveUSD*IDR_FALLBACK);
+  const ch=live24h||0;
+  const valNow=HOLDINGS*idr;
+  const pnl=valNow-MODAL;
+  const pnlPct=(pnl/MODAL)*100;
+  const beNeed=((AVG_IDR/idr)-1)*100;
+  const beUSD=AVG_IDR/(idr/liveUSD);
+
+  document.getElementById('price-usd').textContent='$'+fmtU(liveUSD);
+  document.getElementById('price-idr').textContent='≈ Rp'+fmt(idr)+' / SPX';
+  const chEl=document.getElementById('price-change');
+  chEl.textContent=fmtPct(ch)+' 24h';
+  chEl.className='live-change '+(ch>=0?'change-pos':'change-neg');
+
+  document.getElementById('val-now').textContent='Rp'+fmt(valNow);
+  document.getElementById('val-now').style.color=pnl>=0?'var(--green)':'var(--red)';
+  document.getElementById('val-now-sub').textContent='@ Rp'+fmt(idr)+'/SPX';
+  document.getElementById('pnl-val').textContent=(pnl>=0?'+':'')+'Rp'+fmt(Math.abs(pnl));
+  document.getElementById('pnl-val').style.color=pnl>=0?'var(--green)':'var(--red)';
+  document.getElementById('pnl-pct').textContent=fmtPct(pnlPct)+' dari modal';
+  document.getElementById('pnl-pct').style.color=pnl>=0?'var(--green)':'var(--red)';
+  document.getElementById('loss-bar').style.width=Math.min(Math.abs(pnlPct),100)+'%';
+  document.getElementById('loss-bar').style.background=pnl>=0?'linear-gradient(90deg,#00a884,#00d4aa)':'linear-gradient(90deg,#e63946,#ff8fa3)';
+  document.getElementById('be-usd').textContent='≈ $'+beUSD.toFixed(3)+' · butuh '+(beNeed>0?'+':'')+beNeed.toFixed(1)+'%';
+  document.getElementById('be-note').innerHTML=
+    `Breakeven lo ada di <b>Rp16,937 (~$${beUSD.toFixed(3)})</b>.<br>`+
+    `Dari harga sekarang Rp${fmt(idr)}, butuh <b>+${beNeed.toFixed(1)}%</b> untuk balik modal.<br>`+
+    `Portfolio sekarang: <b style="color:${pnl>=0?'var(--green)':'var(--red)'}">Rp${fmt(valNow)}</b>`;
+}
+
+// ── UPDATE NOW POINT + LIVE LINE ──────────────────────
+function updateNowPoint(){
+  if(!liveUSD) return;
+  const nowIDR = Math.round(liveIDR || (liveUSD * IDR_FALLBACK));
+  const nowPt  = LABELS.map((_,i)=> i===NOW_IDX ? nowIDR : null);
+  const liveLine = LABELS.map(()=> nowIDR);
+
+  if(mainChartInst){
+    mainChartInst.data.datasets[1].data = nowPt;
+    if(mainChartInst.data.datasets[7]) mainChartInst.data.datasets[7].data = liveLine;
+    mainChartInst.update('none');
+  }
+  if(spxAnonChartInst){
+    spxAnonChartInst.data.datasets[3].data = nowPt;
+    if(spxAnonChartInst.data.datasets[4]) spxAnonChartInst.data.datasets[4].data = liveLine;
+    spxAnonChartInst.update('none');
+  }
+}
+
+// ── IMPLIED SPX ───────────────────────────────────────
+function renderImplied(){
+  const nowUSD=liveUSD||0.30;
+  const anonTargets=[
+    {label:'BTC $120K',btc:120000,btcMult:1.44,spxBeta:3,desc:'Early rally'},
+    {label:'BTC $150K',btc:150000,btcMult:1.80,spxBeta:4,desc:'Meme rotation mulai'},
+    {label:'BTC $190K',btc:190000,btcMult:2.28,spxBeta:5,desc:'Anon target — full altseason'},
+    {label:'BTC $190K+meme',btc:190000,btcMult:2.28,spxBeta:12,desc:'Meme premium (Murad thesis)'},
+  ];
+  const container=document.getElementById('implied-grid');
+  container.innerHTML=anonTargets.map(t=>{
+    const impliedSPXusd=nowUSD*(t.btcMult*t.spxBeta);
+    const impliedSPXidr=getIdr(impliedSPXusd);
+    const portVal=HOLDINGS*impliedSPXidr;
+    const pnl=portVal-MODAL;
+    const pnlPct=(pnl/MODAL*100);
+    return`<div class="imp-item">
+      <div class="imp-lbl">${t.label}</div>
+      <div class="imp-spx">$${impliedSPXusd.toFixed(2)}</div>
+      <div class="imp-idr">Rp${fmt(impliedSPXidr)}/SPX</div>
+      <div class="imp-port">Rp${fmt(portVal)}</div>
+      <div class="imp-pnl" style="color:var(--green)">+${pnlPct.toFixed(0)}%</div>
+      <div class="imp-note">beta ${t.spxBeta}x · ${t.desc}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── MAIN CHART ────────────────────────────────────────
+function buildMainChart(){
+  const ctx=document.getElementById('mainChart').getContext('2d');
+  const nowIDR=Math.round(liveIDR||(0.30*IDR_FALLBACK));
+  const histIdr=HIST_USD.map(v=>v!==null?Math.round(getIdr(v)):null);
+  const nowPt=LABELS.map((_,i)=>i===NOW_IDX?nowIDR:null);
+  const liveLine=LABELS.map(()=>nowIDR);
+  const avgLine=LABELS.map(()=>Math.round(AVG_IDR));
+
+  const datasets=[
+    {label:'Historis',data:histIdr,borderColor:'rgba(20,20,50,0.35)',borderWidth:2,pointRadius:HIST_USD.map(v=>v!==null?1.5:0),pointBackgroundColor:'rgba(20,20,50,0.5)',fill:false,tension:0.4,spanGaps:false},
+    {label:'NOW',data:nowPt,borderColor:'transparent',borderWidth:0,pointRadius:LABELS.map((_,i)=>i===NOW_IDX?8:0),pointBackgroundColor:'#e63946',pointBorderColor:'rgba(230,57,70,0.25)',pointBorderWidth:4,fill:false,tension:0,spanGaps:false},
+    ...[1,2,3,4].map(sn=>{
+      const idrProj=SC[sn].usd.map(v=>v!==null?Math.round(getIdr(v)):null);
+      return{label:`S${sn}`,data:idrProj,borderColor:sn===currentS?SC[sn].color:SC[sn].color+'33',borderWidth:sn===currentS?2.5:1,borderDash:[6,4],pointRadius:0,fill:false,tension:0.4,spanGaps:false};
+    }),
+    {label:'Avg',data:avgLine,borderColor:'rgba(184,137,0,0.55)',borderWidth:1.5,borderDash:[3,3],pointRadius:0,fill:false,tension:0},
+    {label:'LIVE',data:liveLine,borderColor:'rgba(230,57,70,0.85)',borderWidth:1.5,borderDash:[2,3],pointRadius:0,fill:false,tension:0,order:10}
+  ];
+
+  if(mainChartInst) mainChartInst.destroy();
+  mainChartInst=new Chart(ctx,{
+    type:'line',data:{labels:LABELS,datasets},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:0},
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{
+        backgroundColor:'#ffffff',borderColor:'rgba(20,20,50,0.12)',borderWidth:1,
+        titleColor:'#888',bodyColor:'#181828',
+        titleFont:{family:'Space Mono',size:9},bodyFont:{family:'Space Mono',size:9},
+        callbacks:{label:ctx=>{
+          if(ctx.parsed.y===null) return null;
+          const v=ctx.parsed.y;
+          const usd=liveUSD?v/(liveIDR/liveUSD):v/IDR_FALLBACK;
+          if(ctx.dataset.label==='Avg') return` Avg cost: Rp${fmt(v)}`;
+          if(ctx.dataset.label==='LIVE') return` LIVE: Rp${fmt(v)} (~$${usd.toFixed(5)})`;
+          const pv=HOLDINGS*v;const pl=pv-MODAL;const plPct=(pl/MODAL*100).toFixed(1);
+          return[` ${ctx.dataset.label}: $${usd.toFixed(3)} · Rp${fmt(v)}`,` Port: Rp${fmt(pv)} (${pl>=0?'+':''}${plPct}%)`];
+        }}
+      }},
+      scales:{
+        x:{ticks:{color:'#888',font:{family:'Space Mono',size:8},maxRotation:45,autoSkip:true,maxTicksLimit:12},grid:{color:'rgba(20,20,50,0.05)'}},
+        y:{type:'logarithmic',ticks:{color:'#888',font:{family:'Space Mono',size:8},callback:v=>{const n=[100,500,1000,5000,10000,16937,50000,100000,200000];return n.includes(v)?'Rp'+fmt(v):null}},grid:{color:'rgba(20,20,50,0.05)'}}
+      }
+    }
+  });
+}
+
+function updateMainChart(){
+  if(!mainChartInst) return;
+  const nowIDR=Math.round(liveIDR||((liveUSD||0.30)*IDR_FALLBACK));
+  const histIdr=HIST_USD.map(v=>v!==null?Math.round(getIdr(v)):null);
+  const nowPt=LABELS.map((_,i)=>i===NOW_IDX?nowIDR:null);
+  const liveLine=LABELS.map(()=>nowIDR);
+  mainChartInst.data.datasets[0].data=histIdr;
+  mainChartInst.data.datasets[1].data=nowPt;
+  [1,2,3,4].forEach((sn,idx)=>{
+    const idrProj=SC[sn].usd.map(v=>v!==null?Math.round(getIdr(v)):null);
+    mainChartInst.data.datasets[2+idx].data=idrProj;
+  });
+  mainChartInst.data.datasets[6].data=LABELS.map(()=>Math.round(AVG_IDR));
+  if(mainChartInst.data.datasets[7]) mainChartInst.data.datasets[7].data=liveLine;
+  mainChartInst.update('none');
+}
+
+// ── ANON DUAL CHARTS ──────────────────────────────────
+function buildAnonCharts(){
+  const btcCtx=document.getElementById('btcAnonChart').getContext('2d');
+  if(btcChartInst) btcChartInst.destroy();
+  btcChartInst=new Chart(btcCtx,{
+    type:'line',
+    data:{labels:LABELS,datasets:[
+      {label:'BTC Hist',data:BTC_HIST_USD.map(v=>v),borderColor:'rgba(232,133,10,0.55)',borderWidth:1.5,pointRadius:0,fill:false,tension:0.4,spanGaps:false},
+      {label:'BTC Anon',data:SC[4].btcUSD.map(v=>v),borderColor:'#e8850a',borderWidth:2.5,borderDash:[6,4],pointRadius:0,fill:false,tension:0.4,spanGaps:false},
+      {label:'NOW',data:LABELS.map((_,i)=>i===NOW_IDX?85000:null),borderColor:'transparent',pointRadius:LABELS.map((_,i)=>i===NOW_IDX?6:0),pointBackgroundColor:'#e63946',fill:false,spanGaps:false}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:0},
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#ffffff',borderColor:'rgba(20,20,50,0.12)',borderWidth:1,titleColor:'#888',bodyColor:'#181828',titleFont:{family:'Space Mono',size:8},bodyFont:{family:'Space Mono',size:8},callbacks:{label:c=>c.parsed.y?` $${new Intl.NumberFormat().format(Math.round(c.parsed.y))}`:null}}},
+      scales:{x:{ticks:{color:'#888',font:{family:'Space Mono',size:8},maxRotation:45,autoSkip:true,maxTicksLimit:8},grid:{color:'rgba(20,20,50,0.05)'}},y:{ticks:{color:'#888',font:{family:'Space Mono',size:8},callback:v=>{const n=[30000,50000,85000,100000,150000,190000];return n.includes(v)?'$'+new Intl.NumberFormat().format(v):null}},grid:{color:'rgba(20,20,50,0.05)'}}}
+    }
+  });
+
+  const spxCtx=document.getElementById('spxAnonChart').getContext('2d');
+  const nowIDR=Math.round(liveIDR||((liveUSD||0.30)*IDR_FALLBACK));
+  const spxAnonIdr=SC[4].usd.map(v=>v!==null?Math.round(getIdr(v)):null);
+  const liveLine=LABELS.map(()=>nowIDR);
+
+  if(spxAnonChartInst) spxAnonChartInst.destroy();
+  spxAnonChartInst=new Chart(spxCtx,{
+    type:'line',
+    data:{labels:LABELS,datasets:[
+      {label:'SPX Hist',data:HIST_USD.map(v=>v!==null?Math.round(getIdr(v)):null),borderColor:'rgba(20,20,50,0.35)',borderWidth:1.5,pointRadius:0,fill:false,tension:0.4,spanGaps:false},
+      {label:'SPX Anon',data:spxAnonIdr,borderColor:'#d63384',borderWidth:2.5,borderDash:[6,4],pointRadius:0,fill:false,tension:0.4,spanGaps:false},
+      {label:'Avg',data:LABELS.map(()=>Math.round(AVG_IDR)),borderColor:'rgba(184,137,0,0.55)',borderWidth:1,borderDash:[3,3],pointRadius:0,fill:false,tension:0},
+      {label:'NOW',data:LABELS.map((_,i)=>i===NOW_IDX?nowIDR:null),borderColor:'transparent',pointRadius:LABELS.map((_,i)=>i===NOW_IDX?6:0),pointBackgroundColor:'#e63946',fill:false,spanGaps:false},
+      {label:'LIVE',data:liveLine,borderColor:'rgba(230,57,70,0.85)',borderWidth:1.5,borderDash:[2,3],pointRadius:0,fill:false,tension:0,order:10}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:0},
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#ffffff',borderColor:'rgba(20,20,50,0.12)',borderWidth:1,titleColor:'#888',bodyColor:'#181828',titleFont:{family:'Space Mono',size:8},bodyFont:{family:'Space Mono',size:8},callbacks:{label:c=>{
+        if(!c.parsed.y) return null;
+        const usd=liveUSD?c.parsed.y/(liveIDR/liveUSD):c.parsed.y/IDR_FALLBACK;
+        const pv=HOLDINGS*c.parsed.y;const pl=pv-MODAL;const plPct=(pl/MODAL*100).toFixed(0);
+        return[` Rp${fmt(c.parsed.y)} (~$${usd.toFixed(2)})`,` Port: Rp${fmt(pv)} (${pl>=0?'+':''}${plPct}%)`];
+      }}}},
+      scales:{x:{ticks:{color:'#888',font:{family:'Space Mono',size:8},maxRotation:45,autoSkip:true,maxTicksLimit:8},grid:{color:'rgba(20,20,50,0.05)'}},y:{type:'logarithmic',ticks:{color:'#888',font:{family:'Space Mono',size:8},callback:v=>{const n=[1000,5000,16937,50000,100000,200000];return n.includes(v)?'Rp'+fmt(v):null}},grid:{color:'rgba(20,20,50,0.05)'}}}
+    }
+  });
+}
+
+function updateAnonCharts(){
+  if(!spxAnonChartInst) return;
+  const nowIDR=Math.round(liveIDR||((liveUSD||0.30)*IDR_FALLBACK));
+  const spxAnonIdr=SC[4].usd.map(v=>v!==null?Math.round(getIdr(v)):null);
+  const liveLine=LABELS.map(()=>nowIDR);
+  spxAnonChartInst.data.datasets[1].data=spxAnonIdr;
+  spxAnonChartInst.data.datasets[3].data=LABELS.map((_,i)=>i===NOW_IDX?nowIDR:null);
+  if(spxAnonChartInst.data.datasets[4]) spxAnonChartInst.data.datasets[4].data=liveLine;
+  spxAnonChartInst.update('none');
+}
+
+// ── PROJ CARDS ────────────────────────────────────────
+function renderProjCards(sn){
+  document.getElementById('proj-lbl').textContent=`PROYEKSI PORTOFOLIO — S${sn} (dari ${NOW_LABEL.replace('▼','')})`;
+  const container=document.getElementById('proj-grid');
+  container.innerHTML=SC[sn].milestones.map(m=>{
+    const idr=getIdr(m.usd);const pv=HOLDINGS*idr;const pl=pv-MODAL;const plPct=(pl/MODAL*100);
+    const isP=pl>=0;const acol=isP?'var(--green)':'var(--red)';
+    return`<div class="proj-card" style="border-color:${isP?'rgba(0,168,132,0.25)':'rgba(230,57,70,0.18)'}">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:${SC[sn].color}"></div>
+      <div class="pj-lbl">${m.label} · ${m.desc}</div>
+      <div class="pj-idr" style="color:${acol}">Rp${fmt(pv)}</div>
+      <div class="pj-usd">@ $${m.usd.toFixed(2)} · Rp${fmt(idr)}</div>
+      <div class="pj-pnl" style="color:${acol}">${isP?'+':''}Rp${fmt(Math.abs(pl))} (${fmtPct(plPct)})</div>
+      <div class="pj-note">${isP?'✓ PROFIT':'✗ MASIH LOSS'}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderTargetCards(){
+  const targets=[
+    {label:'Breakeven',usd:AVG_IDR/getIdr(1)*1,note:'Balik modal'},
+    {label:'SPX $1',usd:1.0,note:'Pertama $1'},
+    {label:'SPX $2',usd:2.0,note:'Altseason entry'},
+    {label:'SPX $7.50',usd:7.50,note:'Anon S4 target'},
+    {label:'SPX $12',usd:12.0,note:'Anon peak implied'},
+    {label:'SPX $20',usd:20.0,note:'Murad range'},
+  ];
+  const beUSD=AVG_IDR/(liveIDR&&liveUSD?liveIDR/liveUSD:IDR_FALLBACK);
+  targets[0].usd=beUSD;
+  const container=document.getElementById('target-grid');
+  container.innerHTML=targets.map(t=>{
+    const idr=getIdr(t.usd);const pv=HOLDINGS*idr;const pl=pv-MODAL;const plPct=(pl/MODAL*100);
+    const isP=pl>=0;const acol=isP?'var(--green)':'var(--red)';
+    return`<div class="proj-card">
+      <div class="pj-lbl">${t.label}</div>
+      <div class="pj-idr" style="color:${acol}">Rp${fmt(pv)}</div>
+      <div class="pj-usd">@ $${t.usd.toFixed(2)} · Rp${fmt(idr)}</div>
+      <div class="pj-pnl" style="color:${acol}">${isP?'+':''}Rp${fmt(Math.abs(pl))} (${fmtPct(plPct)})</div>
+      <div class="pj-note">${t.note}</div>
+    </div>`;
+  }).join('');
+}
+
+function setS(n,el){
+  currentS=n;
+  document.querySelectorAll('.tab').forEach(t=>t.className='tab');
+  el.className=`tab a${n}`;
+  document.querySelectorAll('.sc-info').forEach(c=>c.classList.remove('vis'));
+  document.getElementById(`si${n}`).classList.add('vis');
+  if(mainChartInst){
+    [1,2,3,4].forEach((sn,idx)=>{
+      mainChartInst.data.datasets[2+idx].borderColor=sn===n?SC[sn].color:SC[sn].color+'33';
+      mainChartInst.data.datasets[2+idx].borderWidth=sn===n?2.5:1;
+    });
+    mainChartInst.update('none');
+  }
+  renderProjCards(n);
+}
+
+// ── INIT ──────────────────────────────────────────────
+window.addEventListener('load',()=>{
+  // Set dynamic NOW label di header chart
+  document.getElementById('now-lbl-display').textContent = NOW_LABEL;
+
+  buildTapeChart();
+  buildMainChart();
+  buildAnonCharts();
+  renderImplied();
+  renderProjCards(1);
+  renderTargetCards();
+  fetchPrice(true);
+  startTimer();
+  tryWs(0);
+});
+
+window.addEventListener('beforeunload', ()=>{
+  if(wsConn){ try{ wsConn.close(); }catch(e){} }
+});
+</script>
+</body>
+</html>
