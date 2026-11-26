@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BTC Dashboard — Fuel Gauge + Time Matrix</title>
+<title>BTC Dashboard — Fuel Gauge + Time Matrix 2027</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
@@ -130,11 +130,13 @@ body::before{content:'';position:fixed;inset:0;
 #tab-matrix .k{background:var(--bd);color:var(--bl)}
 #tab-matrix .y{background:var(--gd);color:var(--gold);border:1px solid var(--gb)}
 #tab-matrix .g{background:var(--grd);color:var(--gr)}
+#tab-matrix .h{background:var(--grd);color:var(--gr);border:1px dashed var(--gr)}
+#tab-matrix .a{background:var(--bg2);color:var(--t2);border:1px solid var(--b2)}
 #tab-matrix .sc{width:58px;flex-shrink:0;padding:12px 6px;text-align:center;border-left:1px solid var(--b);font-size:9px;color:var(--t3)}
 #tab-matrix .sc i{display:block;font-style:normal;color:var(--gold);font-size:11px;margin-bottom:2px}
 #tab-matrix .ft{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--b);font-size:10px;color:var(--t3);line-height:1.8;font-style:italic}
 </style></head><body>
-<div class="tabs"><button class="tabbtn on" data-t="tab-fuel">Fuel Gauge</button><button class="tabbtn" data-t="tab-matrix">Time Matrix Okt–Des</button></div>
+<div class="tabs"><button class="tabbtn on" data-t="tab-fuel">Fuel Gauge</button><button class="tabbtn" data-t="tab-matrix">Time Matrix 2027</button></div>
 <div id="tab-fuel" class="tabpane on">
 <div class="wrap">
 
@@ -346,7 +348,76 @@ body::before{content:'';position:fixed;inset:0;
 </div>
 <div id="tab-matrix" class="tabpane"><div class="w">
 <div class="eb">BTC/USD · Calendar Matrix</div>
-<h1>Time Matrix <em>Okt — Des</em> 2026</h1>
+<h1>Time Matrix <em>Q1 — Q2</em> 2027</h1>
+<div class="sub">Fib Time (anchor ATH → low) · Moon &amp; planetary stations (ephemeris, WIB) · fase akumulasi 500-day rule · analog siklus 2019/2023 · FOMC &amp; opex</div>
+
+<div class="warn"><b>Review Okt–Des 2026.</b> Cluster utama 14-16 Nov ternyata 5 hari lebih awal dari low 21 Nov ($55.1k, data Crypto.com), dan masih di dalam window analog siklus. Ada juga yang perlu dikoreksi: anchor A (2 Apr) dan B (10 Mei) basisnya sama-sama 38 hari dan jaraknya juga 38 hari. Jadi A×(n+1) selalu jatuh di tanggal yang sama dengan B×n, dan konfluensi "dua anchor" di 16 Nov dan 24 Des itu sebenernya cuma satu layer yang kehitung dua kali. Di matrix 2027 tiap layer dihitung sekali saja. Tetap pakai ini sebagai <b>kalender buat perhatiin price action</b>, bukan sinyal arah.</div>
+
+<div class="mt"><em>Anchor</em> &amp; layer</div>
+<table>
+<tr><th>Layer</th><th>Isi</th><th>Sumber</th></tr>
+<tr><td>Fib Time</td><td>ATH 6 Okt 2025 ke low 21 Nov 2026 = <b>411 hari</b>. Tanggal = low + 411 × rasio: 0.146 (20 Jan), 0.236 (26 Feb), 0.382 (27 Apr), 0.5 (15 Jun). Rasio berikutnya, 0.618, jatuh di 2 Agu.</td><td>Python</td></tr>
+<tr><td>Astro</td><td>New/full moon, Mercury retro 11 Feb-5 Mar dan 12 Jun-6 Jul, Mars retro 12 Jan-3 Apr, Jupiter direct 14 Apr</td><td>ephem, UTC+7</td></tr>
+<tr><td>500-day</td><td>Penanda bulat T-450, T-400, T-365, T-300 dari estimasi halving 11 Apr 2028 (sama dengan tab Simulator)</td><td>Hitungan tanggal</td></tr>
+<tr><td>Analog</td><td>Hari ke-N setelah low siklus lalu yang jadi titik balik: 2019 (low 15 Des 2018) dan 2023 (low 21 Nov 2022)</td><td>Data historis</td></tr>
+<tr><td>Makro</td><td>FOMC 26-27 Jan, 16-17 Mar, 27-28 Apr, 8-9 Jun. Opex kuartalan 26 Mar dan 25 Jun</td><td>federalreserve.gov, Deribit</td></tr>
+</table>
+
+<div class="mt"><em>Mapping</em> ke 500-day rule</div>
+<div class="ds" style="font-size:11px;color:var(--t2);line-height:1.8">T-500 (tanggal beli versi rule) jatuh di <b>28 Nov 2026</b>, seminggu setelah low 21 Nov. Q1-Q2 2027 berarti <b>T-466 sampai T-286</b>: fase time accumulation antara tanggal beli dan halving. Jarak low ke halving di siklus-siklus sebelumnya konsisten di kisaran 513-542 hari. Kalau low 21 Nov bertahan, siklus ini 507 hari, masih di kisaran yang sama.</div>
+<table>
+<tr><th>Siklus</th><th>Low</th><th>Halving</th><th>Low → halving</th></tr>
+<tr><td>2016</td><td>14 Jan 2015</td><td>9 Jul 2016</td><td>542 hari</td></tr>
+<tr><td>2020</td><td>15 Des 2018</td><td>11 Mei 2020</td><td>513 hari</td></tr>
+<tr><td>2024</td><td>21 Nov 2022</td><td>20 Apr 2024</td><td>516 hari</td></tr>
+<tr><td class="o">2028</td><td class="o">21 Nov 2026 (kalau bertahan)</td><td class="o">~11 Apr 2028 (estimasi)</td><td class="o">507 hari</td></tr>
+</table>
+<table>
+<tr><th>Bulan 2027</th><th>Hari ke halving</th><th>Hari sejak low</th></tr>
+<tr><td>Jan</td><td>T-466 → T-436</td><td>+41 → +71</td></tr>
+<tr><td>Feb</td><td>T-435 → T-408</td><td>+72 → +99</td></tr>
+<tr><td>Mar</td><td>T-407 → T-377</td><td>+100 → +130</td></tr>
+<tr><td>Apr</td><td>T-376 → T-347</td><td>+131 → +160</td></tr>
+<tr><td>Mei</td><td>T-346 → T-316</td><td>+161 → +191</td></tr>
+<tr><td>Jun</td><td>T-315 → T-286</td><td>+192 → +221</td></tr>
+</table>
+
+<div class="mt"><em>Januari</em> 2027</div>
+<div class="c"><div class="st" style="background:var(--am)"></div><div class="d"><b>8</b><span>Jan</span></div><div class="bd"><div class="ti">New Moon Capricorn</div><div class="ds">03:24 WIB. Satu layer, bobot kecil.</div><div class="tg"><span class="m">New Moon ♑</span></div></div><div class="sc"><i>★</i>1 layer</div></div>
+<div class="c"><div class="st" style="background:var(--pu)"></div><div class="d"><b>12-13</b><span>Jan</span></div><div class="bd"><div class="ti">Mars retro mulai + analog awal rally 2023</div><div class="ds"><b>12 Jan:</b> Mars mulai retrograde (sampai 3 Apr). <b>13 Jan:</b> hari ke-53 dari low. Di siklus 2022, hari ke-53 dari low (13 Jan 2023) adalah awal rally pertama keluar dari bottom.</div><div class="tg"><span class="p">Mars ℞</span><span class="a">Analog 2023 +53</span></div></div><div class="sc"><i>★★</i>2 layer</div></div>
+<div class="c"><div class="st" style="background:var(--gr)"></div><div class="d"><b>17</b><span>Jan</span></div><div class="bd"><div class="ti">T-450 halving</div><div class="ds">450 hari sebelum estimasi halving 11 Apr 2028. Penanda waktu bulat dari rule 500 hari, bukan sinyal.</div><div class="tg"><span class="h">500-day T-450</span></div></div><div class="sc"><i>★</i>1 layer</div></div>
+<div class="c"><div class="st" style="background:var(--bl)"></div><div class="d"><b>20-22</b><span>Jan</span></div><div class="bd"><div class="ti">Fib 0.146 + Full Moon Leo</div><div class="ds"><b>20 Jan:</b> 0.146 × 411 hari = 60 hari dari low. Rasio kecil, bobotnya paling ringan. <b>22 Jan:</b> Full Moon Leo, 19:17 WIB.</div><div class="tg"><span class="f">Fib 0.146</span><span class="m">Full Moon ♌</span></div></div><div class="sc"><i>★★</i>2 layer</div></div>
+<div class="c"><div class="st" style="background:var(--bl)"></div><div class="d"><b>26-28</b><span>Jan</span></div><div class="bd"><div class="ti">FOMC Januari</div><div class="ds">Rapat 26-27 Jan, keputusan keluar sekitar 28 Jan 02:00 WIB. Close bulanan Januari 1 Feb 07:00 WIB.</div><div class="tg"><span class="k">FOMC</span><span class="k">Monthly close</span></div></div><div class="sc"><i>★</i>macro</div></div>
+<div class="mt"><em>Februari</em> 2027</div>
+<div class="c"><div class="st" style="background:var(--am)"></div><div class="d"><b>6</b><span>Feb</span></div><div class="bd"><div class="ti">New Moon Aquarius</div><div class="ds">22:56 WIB. Satu layer.</div><div class="tg"><span class="m">New Moon ♒</span></div></div><div class="sc"><i>★</i>1 layer</div></div>
+<div class="c"><div class="st" style="background:var(--red)"></div><div class="d"><b>11</b><span>Feb</span></div><div class="bd"><div class="ti">Mercury Retrograde mulai</div><div class="ds">Berlangsung sampai 5 Mar. Sama kayak sebelumnya: anggap pengingat buat nunggu konfirmasi candle, bukan bukti.</div><div class="tg"><span class="p">Mercury ℞</span></div></div><div class="sc"><i>★</i>watch</div></div>
+<div class="c"><div class="st" style="background:var(--am)"></div><div class="d"><b>21</b><span>Feb</span></div><div class="bd"><div class="ti">Full Moon Virgo</div><div class="ds">06:23 WIB. Satu layer.</div><div class="tg"><span class="m">Full Moon ♍</span></div></div><div class="sc"><i>★</i>1 layer</div></div>
+<div class="c"><div class="st" style="background:var(--bl)"></div><div class="d"><b>26</b><span>Feb</span></div><div class="bd"><div class="ti">Fib 0.236</div><div class="ds">0.236 × 411 = 97 hari dari low 21 Nov. Satu layer.</div><div class="tg"><span class="f">Fib 0.236</span></div></div><div class="sc"><i>★</i>1 layer</div></div>
+<div class="mt"><em>Maret</em> 2027</div>
+<div class="c s"><div class="st" style="background:var(--gold)"></div><div class="d"><b>8-9</b><span>Mar</span></div><div class="bd"><div class="ti">Cluster Maret <span class="tg"><span class="y">3 layer</span></span></div><div class="ds"><b>5 Mar:</b> Mercury direct (3 hari sebelumnya, di luar toleransi). <b>8 Mar:</b> New Moon Pisces (16:29 WIB) dan T-400 halving. <b>9 Mar:</b> hari ke-108 dari low. Di siklus 2018, hari ke-108 dari low (2 Apr 2019) adalah breakout besar pertama.</div><div class="tg"><span class="m">New Moon ♓</span><span class="h">500-day T-400</span><span class="a">Analog 2019 +108</span><span class="g">Mercury direct 5 Mar</span></div></div><div class="sc"><i>★★★</i>3 layer</div></div>
+<div class="c"><div class="st" style="background:var(--bl)"></div><div class="d"><b>16-18</b><span>Mar</span></div><div class="bd"><div class="ti">FOMC Maret</div><div class="ds">Rapat 16-17 Mar, keputusan sekitar 18 Mar 02:00 WIB. Maret biasanya ada dot plot (SEP), cek lagi di situs Fed.</div><div class="tg"><span class="k">FOMC</span></div></div><div class="sc"><i>★</i>macro</div></div>
+<div class="c"><div class="st" style="background:var(--am)"></div><div class="d"><b>22</b><span>Mar</span></div><div class="bd"><div class="ti">Full Moon Libra</div><div class="ds">17:43 WIB. Satu layer.</div><div class="tg"><span class="m">Full Moon ♎</span></div></div><div class="sc"><i>★</i>1 layer</div></div>
+<div class="c"><div class="st" style="background:var(--bl)"></div><div class="d"><b>26</b><span>Mar</span></div><div class="bd"><div class="ti">Options expiry kuartalan + close Q1</div><div class="ds">Jumat terakhir Maret, expiry Deribit 08:00 UTC (15:00 WIB). Close kuartal Q1 di 1 Apr 07:00 WIB.</div><div class="tg"><span class="k">Opex Q1</span><span class="k">Quarterly close</span></div></div><div class="sc"><i>★</i>macro</div></div>
+<div class="mt"><em>April</em> 2027</div>
+<div class="c"><div class="st" style="background:var(--pu)"></div><div class="d"><b>3</b><span>Apr</span></div><div class="bd"><div class="ti">Mars direct</div><div class="ds">Mars retro selesai. Satu layer.</div><div class="tg"><span class="g">Mars direct</span></div></div><div class="sc"><i>★</i>1 layer</div></div>
+<div class="c"><div class="st" style="background:var(--am)"></div><div class="d"><b>7</b><span>Apr</span></div><div class="bd"><div class="ti">New Moon Aries</div><div class="ds">06:51 WIB. Satu layer.</div><div class="tg"><span class="m">New Moon ♈</span></div></div><div class="sc"><i>★</i>1 layer</div></div>
+<div class="c s"><div class="st" style="background:var(--gold)"></div><div class="d"><b>12-14</b><span>Apr</span></div><div class="bd"><div class="ti">Cluster April <span class="tg"><span class="y">3 layer</span></span></div><div class="ds"><b>12 Apr:</b> T-365, tepat setahun sebelum estimasi halving. <b>14 Apr:</b> Jupiter direct, dan hari ke-144 dari low. Di siklus 2022, hari ke-144 dari low (14 Apr 2023) adalah high lokal sebelum koreksi ke Juni.</div><div class="tg"><span class="h">500-day T-365</span><span class="g">Jupiter direct</span><span class="a">Analog 2023 +144</span></div></div><div class="sc"><i>★★★</i>3 layer</div></div>
+<div class="c"><div class="st" style="background:var(--am)"></div><div class="d"><b>21</b><span>Apr</span></div><div class="bd"><div class="ti">Full Moon Scorpio</div><div class="ds">05:27 WIB. Satu layer.</div><div class="tg"><span class="m">Full Moon ♏</span></div></div><div class="sc"><i>★</i>1 layer</div></div>
+<div class="c"><div class="st" style="background:var(--bl)"></div><div class="d"><b>27-29</b><span>Apr</span></div><div class="bd"><div class="ti">Fib 0.382 + FOMC April</div><div class="ds"><b>27 Apr:</b> 0.382 × 411 = 157 hari dari low. <b>27-28 Apr:</b> FOMC, keputusan sekitar 29 Apr 02:00 WIB.</div><div class="tg"><span class="f">Fib 0.382</span><span class="k">FOMC</span></div></div><div class="sc"><i>★★</i>2 layer</div></div>
+<div class="mt"><em>Mei</em> 2027</div>
+<div class="c"><div class="st" style="background:var(--am)"></div><div class="d"><b>6</b><span>Mei</span></div><div class="bd"><div class="ti">New Moon Taurus</div><div class="ds">17:58 WIB. Satu layer.</div><div class="tg"><span class="m">New Moon ♉</span></div></div><div class="sc"><i>★</i>1 layer</div></div>
+<div class="c"><div class="st" style="background:var(--am)"></div><div class="d"><b>20</b><span>Mei</span></div><div class="bd"><div class="ti">Full Moon Scorpio</div><div class="ds">17:58 WIB. Satu layer. Mei bulan paling sepi di matrix ini: ga ada FOMC dan ga ada cluster.</div><div class="tg"><span class="m">Full Moon ♏</span></div></div><div class="sc"><i>★</i>1 layer</div></div>
+<div class="mt"><em>Juni</em> 2027</div>
+<div class="c"><div class="st" style="background:var(--am)"></div><div class="d"><b>2-5</b><span>Jun</span></div><div class="bd"><div class="ti">Analog high 2019 + New Moon Gemini</div><div class="ds"><b>2 Jun:</b> hari ke-193 dari low. Di siklus 2018, hari ke-193 (26 Jun 2019) adalah high besar tahun itu. <b>5 Jun:</b> New Moon Gemini, 02:40 WIB.</div><div class="tg"><span class="a">Analog 2019 +193</span><span class="m">New Moon ♊</span></div></div><div class="sc"><i>★★</i>2 layer</div></div>
+<div class="c"><div class="st" style="background:var(--bl)"></div><div class="d"><b>8-10</b><span>Jun</span></div><div class="bd"><div class="ti">FOMC Juni</div><div class="ds">Rapat 8-9 Jun, keputusan sekitar 10 Jun 02:00 WIB. Juni biasanya ada dot plot. Seminggu sebelum cluster utama.</div><div class="tg"><span class="k">FOMC</span></div></div><div class="sc"><i>★</i>macro</div></div>
+<div class="c s"><div class="st" style="background:var(--gold)"></div><div class="d"><b>12-16</b><span>Jun</span></div><div class="bd"><div class="ti">Cluster utama H1 <span class="tg"><span class="y">4 layer</span></span></div><div class="ds"><b>12 Jun:</b> Mercury retrograde mulai (sampai 6 Jul). <b>15 Jun:</b> Fib 0.5 (206 hari dari low) dan hari ke-206 dari low. Di siklus 2022, hari ke-206 (15 Jun 2023) adalah low koreksi sebelum rally Juli. <b>16 Jun:</b> T-300 halving. Catatan jujur: Fib 0.5 dan analog +206 jatuh di hari yang sama karena kebetulan angka (411 ÷ 2 = 205,5), bukan karena dua hal yang saling konfirmasi.</div><div class="tg"><span class="p">Mercury ℞</span><span class="f">Fib 0.5</span><span class="a">Analog 2023 +206</span><span class="h">500-day T-300</span></div></div><div class="sc"><i>★★★★</i>4 layer</div></div>
+<div class="c"><div class="st" style="background:var(--am)"></div><div class="d"><b>19</b><span>Jun</span></div><div class="bd"><div class="ti">Full Moon Sagittarius</div><div class="ds">07:44 WIB. Satu layer.</div><div class="tg"><span class="m">Full Moon ♐</span></div></div><div class="sc"><i>★</i>1 layer</div></div>
+<div class="c"><div class="st" style="background:var(--bl)"></div><div class="d"><b>25</b><span>Jun</span></div><div class="bd"><div class="ti">Options expiry kuartalan + close H1</div><div class="ds">Jumat terakhir Juni, expiry Deribit 15:00 WIB. Close Q2 dan H1 di 1 Jul 07:00 WIB.</div><div class="tg"><span class="k">Opex Q2</span><span class="k">Quarterly close</span></div></div><div class="sc"><i>★</i>macro</div></div>
+
+<div class="ft">Fib Time dihitung dengan Python dari satu anchor: ATH 6 Okt 2025 ke low 21 Nov 2026 (411 hari). Kalau low baru terbentuk, anchor dan semua tanggal Fib serta analog harus dihitung ulang. Moon phase, retrograde, dan station dihitung dengan library ephem (UTC, geser +7 jam untuk WIB, toleransi ±1 hari). Jadwal FOMC 2027 diambil dari federalreserve.gov. Tanggal opex mengikuti aturan Deribit (Jumat terakhir bulan kuartal, 08:00 UTC). Analog siklus cuma 2 sampel dan era ETF bisa mengubah pola. Layer-layer di sini tidak independen dan belum divalidasi secara statistik. Bukan financial advice.</div>
+
+<details style="margin-top:2rem"><summary style="cursor:pointer;font-size:11px;color:var(--t2)">Arsip: Time Matrix Okt–Des 2026</summary>
+
 <div class="sub">Fib Time (3 anchor) · Moon &amp; planetary stations (ephemeris, ±1 hari WIB) · siklus 4 tahun · kalender makro</div>
 
 <div class="warn"><b>Koreksi penting soal matrix Mei-Okt sebelumnya.</b> Tanggal moon phase dan beberapa transit planet di sana gw tulis dari estimasi, dan setelah dicek ke ephemeris banyak yang meleset. Jadi "akurat"-nya Full Moon 11 Juni, New Moon 24 Juni, dan Super Confluence 10 Juli itu <b>tidak valid</b>. Fib Time-nya (hitungan Python) tetap benar secara matematis, tapi hit-rate-nya jelek: 2 Juni bukan bottom dan 10 Juli meleset. Dengan sebanyak ini rasio, hampir selalu ada tanggal yang "kena". Pakai ini sebagai <b>kalender buat perhatiin price action</b>, bukan sinyal arah.
@@ -377,6 +448,7 @@ body::before{content:'';position:fixed;inset:0;
 <div class="c s"><div class="st" style="background:var(--gold)"></div><div class="d"><b>24-25</b><span>Des</span></div><div class="bd"><div class="ti">Cluster akhir tahun <span class="tg"><span class="y">3 layer</span></span></div><div class="ds">24 Des: Fib A×7 dan B×6 (dua anchor) plus Full Moon Cancer. 25 Des: options expiry kuartalan (seingat gw Deribit tiap Jumat terakhir bulan kuartal, cek ulang). Likuiditas liburan tipis, jadi gerakan bisa ekstrem.</div><div class="tg"><span class="f">Fib A×7</span><span class="f">Fib B×6</span><span class="m">Full Moon ♋</span><span class="k">Options expiry</span></div></div><div class="sc"><i>★★★</i>3 layer</div></div>
 
 <div class="ft">Fib Time dihitung dengan Python dari 3 anchor: A = low 2 Apr 2026 (basis 38 hari), B = high 10 Mei 2026 (basis 38 hari), C = low 27 Mei 2026 (basis 17 hari). Moon phase, retrograde, dan station dihitung dengan library ephem (UTC, geser +7 jam untuk WIB). Jadwal FOMC dan opex dari ingatan gw, wajib dicek ulang ke sumber resmi. Layer-layer di sini tidak independen dan belum divalidasi secara statistik. Bukan financial advice.</div>
+</details>
 </div></div>
 <script>
 const fmt = n => '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });

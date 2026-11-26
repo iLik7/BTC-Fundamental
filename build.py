@@ -43,7 +43,7 @@ iframe{width:100%;height:100%;border:0;background:#fafaf8}
 </style></head><body>
 <div class="bar"><span class="brand">BTC <em>Fundamental</em></span>
 <button class="t" data-k="fuel">Fuel Gauge</button>
-<button class="t" data-k="matrix">Time Matrix Okt–Des</button>
+<button class="t" data-k="matrix">Time Matrix 2027</button>
 <button class="t" data-k="sim">500-Day Simulator</button>
 <button class="t" data-k="spx">SPX Tracker</button></div>
 <div id="panes"></div>
