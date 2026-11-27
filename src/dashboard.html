@@ -54,6 +54,8 @@ body::before{content:'';position:fixed;inset:0;
 .mc-bar{position:absolute;bottom:0;left:0;right:0;height:2px;}
 
 /* SECTION */
+.tv-box{height:min(80vh,760px);min-height:480px;width:100%}
+.tv-box .tradingview-widget-container,.tv-box .tradingview-widget-container__widget,.tv-box iframe{height:100%!important;width:100%!important}
 .tv-wide{width:min(1500px,calc(100vw - 32px));position:relative;left:50%;transform:translateX(-50%);}
 .section{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1.5rem;margin-bottom:1.5rem;box-shadow:var(--shadow);}
 .sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;}
@@ -210,9 +212,9 @@ body::before{content:'';position:fixed;inset:0;
   <!-- TRADINGVIEW CHART SECTION -->
   <div class="section tv-wide">
     <div class="sec-head"><div class="sec-title"><i class="ti ti-chart-candle"></i> Chart BTC/USDT</div></div>
-    <div class="tradingview-widget-container" style="height:min(80vh,760px);min-height:480px;width:100%">
-      <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
-      <div class="tradingview-widget-copyright" style="font-size:10px;color:var(--text3);padding-top:6px"><a href="https://www.tradingview.com/symbols/BTCUSDT/?exchange=BINANCE" rel="noopener nofollow" target="_blank" style="color:var(--text3)">BTCUSDT chart by TradingView</a></div>
+    <div class="tv-box"><div class="tradingview-widget-container">
+      <div class="tradingview-widget-container__widget"></div>
+      
       <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
       {
         "autosize": true,
@@ -233,7 +235,8 @@ body::before{content:'';position:fixed;inset:0;
         "support_host": "https://www.tradingview.com"
       }
       </script>
-    </div>
+    </div></div>
+    <div class="tradingview-widget-copyright" style="font-size:10px;color:var(--text3);padding-top:6px"><a href="https://www.tradingview.com/symbols/BTCUSDT/?exchange=BINANCE" rel="noopener nofollow" target="_blank" style="color:var(--text3)">BTCUSDT chart by TradingView</a></div>
   </div>
 
   <!-- FEAR GREED SECTION -->
